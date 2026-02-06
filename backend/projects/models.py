@@ -32,6 +32,46 @@ class SourcePlatform(models.Model):
         return self.name
 
 
+class SystemSettings(models.Model):
+    """System-wide settings controlled by admin."""
+    key = models.CharField(max_length=100, unique=True)
+    value = models.TextField()
+    description = models.TextField(blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='updated_settings'
+    )
+
+    class Meta:
+        db_table = 'system_settings'
+        verbose_name = 'System Setting'
+        verbose_name_plural = 'System Settings'
+
+    def __str__(self):
+        return f"{self.key}: {self.value}"
+
+    @classmethod
+    def get_setting(cls, key, default=None):
+        """Get a setting value, returning default if not found."""
+        try:
+            setting = cls.objects.get(key=key)
+            return setting.value
+        except cls.DoesNotExist:
+            return default
+
+    @classmethod
+    def get_int_setting(cls, key, default=0):
+        """Get a setting as integer."""
+        try:
+            return int(cls.get_setting(key, default))
+        except (ValueError, TypeError):
+            return default
+
+
 class ProjectLead(models.Model):
     """Individual project opportunities scraped from various sources."""
     STATUS_CHOICES = [
@@ -85,6 +125,12 @@ class ProjectLead(models.Model):
         related_name='matched_projects'
     )
     
+    # Public visibility
+    is_public = models.BooleanField(
+        default=True,
+        help_text="Whether this project is visible to non-authenticated users"
+    )
+    
     # Metadata
     scraped_at = models.DateTimeField(auto_now_add=True)
     qualified_at = models.DateTimeField(blank=True, null=True)
@@ -98,6 +144,7 @@ class ProjectLead(models.Model):
         indexes = [
             models.Index(fields=['status', 'relevance_score']),
             models.Index(fields=['source_platform', 'scraped_at']),
+            models.Index(fields=['is_public', 'status']),
         ]
 
     def __str__(self):
@@ -127,3 +174,49 @@ class ProjectMatch(models.Model):
 
     def __str__(self):
         return f"{self.project.title} - {self.user.username}"
+
+
+class ProjectApplication(models.Model):
+    """Applications from non-authenticated users."""
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('reviewed', 'Reviewed'),
+        ('contacted', 'Contacted'),
+        ('rejected', 'Rejected'),
+    ]
+
+    project = models.ForeignKey(ProjectLead, on_delete=models.CASCADE, related_name='applications')
+    
+    # Applicant information (no user account required)
+    applicant_name = models.CharField(max_length=200)
+    applicant_email = models.EmailField()
+    applicant_phone = models.CharField(max_length=20, blank=True, null=True)
+    applicant_portfolio = models.URLField(blank=True, null=True)
+    applicant_skills = models.JSONField(default=list, blank=True)
+    cover_letter = models.TextField()
+    
+    # Status tracking
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    notes = models.TextField(blank=True, null=True, help_text="Internal notes about this application")
+    
+    # Optional: Link to user account if they sign up later
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='applications'
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'project_applications'
+        indexes = [
+            models.Index(fields=['project', 'status']),
+            models.Index(fields=['applicant_email', 'created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.applicant_name} - {self.project.title}"

@@ -6,6 +6,8 @@ import Projects from './pages/Projects'
 import ProjectDetail from './pages/ProjectDetail'
 import Outreach from './pages/Outreach'
 import Settings from './pages/Settings'
+import PublicProjects from './pages/PublicProjects'
+import PublicProjectDetail from './pages/PublicProjectDetail'
 import Layout from './components/Layout'
 
 function PrivateRoute({ children }) {
@@ -25,7 +27,14 @@ function PrivateRoute({ children }) {
 function AppRoutes() {
   return (
     <Routes>
+      {/* Public routes (no authentication required) */}
+      <Route path="/public" element={<PublicProjects />} />
+      <Route path="/public/projects/:id" element={<PublicProjectDetail />} />
+      
+      {/* Auth routes */}
       <Route path="/login" element={<Login />} />
+      
+      {/* Private routes (authentication required) */}
       <Route
         path="/"
         element={

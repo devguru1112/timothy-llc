@@ -1,14 +1,22 @@
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q
-from .models import ProjectLead, SourcePlatform, ProjectMatch
+from .models import (
+    ProjectLead, SourcePlatform, ProjectMatch, 
+    ProjectApplication, SystemSettings
+)
 from .serializers import (
     ProjectLeadSerializer, 
     ProjectLeadListSerializer,
+    ProjectLeadPublicSerializer,
     SourcePlatformSerializer,
-    ProjectMatchSerializer
+    ProjectMatchSerializer,
+    ProjectApplicationSerializer,
+    ProjectApplicationCreateSerializer,
+    SystemSettingsSerializer,
 )
 from .services import ProjectMatchingService
 
@@ -21,18 +29,79 @@ class SourcePlatformViewSet(viewsets.ModelViewSet):
     search_fields = ['name']
 
 
+class SystemSettingsViewSet(viewsets.ModelViewSet):
+    """Admin-only viewset for system settings."""
+    queryset = SystemSettings.objects.all()
+    serializer_class = SystemSettingsSerializer
+    permission_classes = [IsAuthenticated]  # Only authenticated users (admin)
+    
+    def get_queryset(self):
+        # Only superusers can manage settings
+        if self.request.user.is_superuser:
+            return SystemSettings.objects.all()
+        return SystemSettings.objects.none()
+
+
 class ProjectLeadViewSet(viewsets.ModelViewSet):
     queryset = ProjectLead.objects.select_related('source_platform', 'matched_user').all()
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['status', 'source_platform', 'matched_user']
+    filterset_fields = ['status', 'source_platform', 'matched_user', 'is_public']
     search_fields = ['title', 'description', 'company_name', 'contact_name']
     ordering_fields = ['relevance_score', 'quality_score', 'scraped_at', 'created_at']
     ordering = ['-relevance_score', '-scraped_at']
 
+    def get_permissions(self):
+        """Allow public access for list and retrieve, require auth for other actions."""
+        if self.action in ['list', 'retrieve', 'public']:
+            return [AllowAny()]
+        return [IsAuthenticated()]
+
     def get_serializer_class(self):
         if self.action == 'list':
-            return ProjectLeadListSerializer
+            if self.request.user.is_authenticated:
+                return ProjectLeadListSerializer
+            else:
+                return ProjectLeadPublicSerializer
+        elif self.action == 'retrieve':
+            if self.request.user.is_authenticated:
+                return ProjectLeadSerializer
+            else:
+                return ProjectLeadPublicSerializer
         return ProjectLeadSerializer
+
+    def get_queryset(self):
+        """Filter queryset based on authentication status."""
+        queryset = super().get_queryset()
+        
+        if not self.request.user.is_authenticated:
+            # For anonymous users, only show public projects
+            queryset = queryset.filter(is_public=True, status__in=['new', 'qualified'])
+            
+            # Limit to free projects count
+            free_limit = SystemSettings.get_int_setting('free_projects_limit', 10)
+            queryset = queryset[:free_limit]
+        else:
+            # Authenticated users see all projects
+            queryset = queryset.all()
+        
+        return queryset
+
+    @action(detail=False, methods=['get'], permission_classes=[AllowAny])
+    def public(self, request):
+        """Public endpoint for browsing free projects (no authentication required)."""
+        free_limit = SystemSettings.get_int_setting('free_projects_limit', 10)
+        
+        queryset = ProjectLead.objects.filter(
+            is_public=True,
+            status__in=['new', 'qualified']
+        ).select_related('source_platform')[:free_limit]
+        
+        serializer = ProjectLeadPublicSerializer(queryset, many=True)
+        return Response({
+            'count': len(queryset),
+            'limit': free_limit,
+            'results': serializer.data
+        })
 
     @action(detail=True, methods=['post'])
     def qualify(self, request, pk=None):
@@ -97,3 +166,69 @@ class ProjectMatchViewSet(viewsets.ModelViewSet):
         match.project.save()
         match.save()
         return Response(ProjectMatchSerializer(match).data)
+
+
+class ProjectApplicationViewSet(viewsets.ModelViewSet):
+    """ViewSet for project applications."""
+    queryset = ProjectApplication.objects.select_related('project', 'user').all()
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ['status', 'project']
+    ordering_fields = ['created_at']
+    ordering = ['-created_at']
+
+    def get_permissions(self):
+        """Allow public access for create, require auth for list/retrieve."""
+        if self.action == 'create':
+            return [AllowAny()]
+        return [IsAuthenticated()]
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return ProjectApplicationCreateSerializer
+        return ProjectApplicationSerializer
+
+    def create(self, request, *args, **kwargs):
+        """Create a new application (no authentication required)."""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        # Check if user already applied to this project (by email)
+        project = serializer.validated_data['project']
+        applicant_email = serializer.validated_data['applicant_email']
+        
+        existing_application = ProjectApplication.objects.filter(
+            project=project,
+            applicant_email=applicant_email
+        ).first()
+        
+        if existing_application:
+            return Response(
+                {'error': 'You have already applied to this project.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        application = serializer.save()
+        
+        # If user is authenticated, link the application to their account
+        if request.user.is_authenticated:
+            application.user = request.user
+            application.save()
+        
+        return Response(
+            ProjectApplicationSerializer(application).data,
+            status=status.HTTP_201_CREATED
+        )
+
+    def get_queryset(self):
+        """Filter applications based on user."""
+        queryset = super().get_queryset()
+        
+        if self.request.user.is_authenticated:
+            # Users can see their own applications
+            # Admins can see all applications
+            if self.request.user.is_superuser:
+                return queryset
+            return queryset.filter(user=self.request.user)
+        
+        # Non-authenticated users cannot list applications
+        return ProjectApplication.objects.none()
