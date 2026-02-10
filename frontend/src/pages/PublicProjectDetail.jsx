@@ -21,12 +21,33 @@ export default function PublicProjectDetail() {
   const applicationMutation = useMutation(
     (formData) => api.post('/api/projects/applications/', formData),
     {
-      onSuccess: () => {
+      onSuccess: (data) => {
         setShowApplicationForm(false)
-        alert('Application submitted successfully! We will contact you soon.')
+        const remaining = data.data?.applications_remaining
+        const limit = data.data?.applications_limit
+        
+        if (remaining !== undefined) {
+          alert(`Application submitted successfully! ${remaining} applications remaining.`)
+          if (remaining === 0) {
+            setTimeout(() => {
+              if (window.confirm('You have reached the application limit. Would you like to register to continue?')) {
+                navigate('/register')
+              }
+            }, 1000)
+          }
+        } else {
+          alert('Application submitted successfully! We will contact you soon.')
+        }
       },
       onError: (error) => {
-        alert(error.response?.data?.error || 'Failed to submit application. Please try again.')
+        const errorData = error.response?.data
+        if (errorData?.requires_registration) {
+          if (window.confirm(`${errorData.error}\n\nWould you like to register to continue?`)) {
+            navigate('/register')
+          }
+        } else {
+          alert(errorData?.error || 'Failed to submit application. Please try again.')
+        }
       },
     }
   )

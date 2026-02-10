@@ -64,7 +64,12 @@ export default function Signup() {
     setLoading(false)
 
     if (result.success) {
-      navigate('/')
+      if (result.requires_verification) {
+        // Redirect to verification page
+        navigate('/verify')
+      } else {
+        navigate('/')
+      }
     } else {
       setError(result.error || 'Registration failed')
     }
@@ -156,17 +161,19 @@ export default function Signup() {
 
             <div>
               <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
-                Phone
+                Phone *
               </label>
               <input
                 id="phone"
                 name="phone"
                 type="tel"
+                required
                 className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                 placeholder="+1 (555) 123-4567"
                 value={formData.phone}
                 onChange={handleChange}
               />
+              <p className="mt-1 text-xs text-gray-500">Required for verification</p>
             </div>
 
             <div>

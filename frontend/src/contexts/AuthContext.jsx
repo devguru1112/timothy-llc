@@ -60,6 +60,16 @@ export function AuthProvider({ children }) {
       localStorage.setItem('refresh_token', refresh)
       api.defaults.headers.common['Authorization'] = `Bearer ${access}`
       await fetchUser()
+      
+      // If verification is required, return that info
+      if (response.data.requires_verification) {
+        return { 
+          success: true, 
+          requires_verification: true,
+          message: response.data.message 
+        }
+      }
+      
       return { success: true }
     } catch (error) {
       const errorMessage = error.response?.data?.password?.[0] || 

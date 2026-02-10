@@ -18,6 +18,11 @@ def setup_settings():
             'value': '10',
             'description': 'Number of free projects shown to non-authenticated users',
         },
+        {
+            'key': 'free_applications_limit',
+            'value': '3',
+            'description': 'Number of free applications allowed before requiring registration',
+        },
     ]
     
     created_count = 0

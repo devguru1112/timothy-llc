@@ -18,11 +18,31 @@ class UserRegistrationView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         
+        # Send phone verification code if phone is provided
+        if user.phone:
+            try:
+                user.send_phone_verification_code()
+            except Exception as e:
+                # Log error but don't fail registration
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Failed to send phone verification: {e}")
+        
+        # Send email verification code
+        try:
+            user.send_email_verification_code()
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to send email verification: {e}")
+        
         refresh = RefreshToken.for_user(user)
         return Response({
             'user': UserSerializer(user).data,
             'refresh': str(refresh),
             'access': str(refresh.access_token),
+            'requires_verification': True,
+            'message': 'Registration successful. Please verify your phone and email.'
         }, status=status.HTTP_201_CREATED)
 
 

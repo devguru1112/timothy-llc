@@ -70,7 +70,7 @@ class ProjectLeadViewSet(viewsets.ModelViewSet):
         return ProjectLeadSerializer
 
     def get_queryset(self):
-        """Filter queryset based on authentication status."""
+        """Filter queryset based on authentication and verification status."""
         queryset = super().get_queryset()
         
         if not self.request.user.is_authenticated:
@@ -81,8 +81,16 @@ class ProjectLeadViewSet(viewsets.ModelViewSet):
             free_limit = SystemSettings.get_int_setting('free_projects_limit', 10)
             queryset = queryset[:free_limit]
         else:
-            # Authenticated users see all projects
-            queryset = queryset.all()
+            # Authenticated users
+            user = self.request.user
+            if user.is_fully_verified:
+                # Fully verified users see all projects
+                queryset = queryset.all()
+            else:
+                # Unverified users see limited projects
+                queryset = queryset.filter(is_public=True, status__in=['new', 'qualified'])
+                free_limit = SystemSettings.get_int_setting('free_projects_limit', 10)
+                queryset = queryset[:free_limit]
         
         return queryset
 
@@ -91,15 +99,25 @@ class ProjectLeadViewSet(viewsets.ModelViewSet):
         """Public endpoint for browsing free projects (no authentication required)."""
         free_limit = SystemSettings.get_int_setting('free_projects_limit', 10)
         
-        queryset = ProjectLead.objects.filter(
-            is_public=True,
-            status__in=['new', 'qualified']
-        ).select_related('source_platform')[:free_limit]
+        # Check if user is authenticated and verified
+        if request.user.is_authenticated and hasattr(request.user, 'is_fully_verified') and request.user.is_fully_verified:
+            # Fully verified users see all projects
+            queryset = ProjectLead.objects.filter(
+                status__in=['new', 'qualified']
+            ).select_related('source_platform')
+            limit = None
+        else:
+            # Non-authenticated or unverified users see limited projects
+            queryset = ProjectLead.objects.filter(
+                is_public=True,
+                status__in=['new', 'qualified']
+            ).select_related('source_platform')[:free_limit]
+            limit = free_limit
         
         serializer = ProjectLeadPublicSerializer(queryset, many=True)
         return Response({
             'count': len(queryset),
-            'limit': free_limit,
+            'limit': limit,
             'results': serializer.data
         })
 
@@ -189,6 +207,19 @@ class ProjectApplicationViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         """Create a new application (no authentication required)."""
+        # Check application limit for non-authenticated users
+        if not request.user.is_authenticated:
+            if hasattr(request, 'applications_exceeded') and request.applications_exceeded:
+                return Response(
+                    {
+                        'error': 'Application limit reached',
+                        'message': f'You have reached the limit of {request.applications_limit} free applications. Please register to continue.',
+                        'applications_remaining': 0,
+                        'requires_registration': True
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
@@ -214,8 +245,14 @@ class ProjectApplicationViewSet(viewsets.ModelViewSet):
             application.user = request.user
             application.save()
         
+        # Include remaining applications in response
+        response_data = ProjectApplicationSerializer(application).data
+        if not request.user.is_authenticated:
+            response_data['applications_remaining'] = getattr(request, 'applications_remaining', 0)
+            response_data['applications_limit'] = getattr(request, 'applications_limit', 3)
+        
         return Response(
-            ProjectApplicationSerializer(application).data,
+            response_data,
             status=status.HTTP_201_CREATED
         )
 
