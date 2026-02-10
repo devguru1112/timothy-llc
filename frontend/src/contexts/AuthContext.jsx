@@ -52,6 +52,25 @@ export function AuthProvider({ children }) {
     }
   }
 
+  const register = async (userData) => {
+    try {
+      const response = await api.post('/api/auth/register/', userData)
+      const { access, refresh } = response.data
+      localStorage.setItem('access_token', access)
+      localStorage.setItem('refresh_token', refresh)
+      api.defaults.headers.common['Authorization'] = `Bearer ${access}`
+      await fetchUser()
+      return { success: true }
+    } catch (error) {
+      const errorMessage = error.response?.data?.password?.[0] || 
+                          error.response?.data?.username?.[0] ||
+                          error.response?.data?.email?.[0] ||
+                          error.response?.data?.detail ||
+                          'Registration failed'
+      return { success: false, error: errorMessage }
+    }
+  }
+
   const logout = () => {
     localStorage.removeItem('access_token')
     localStorage.removeItem('refresh_token')
@@ -63,6 +82,7 @@ export function AuthProvider({ children }) {
     user,
     loading,
     login,
+    register,
     logout,
     fetchUser,
   }

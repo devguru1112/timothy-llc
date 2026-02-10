@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Login from './pages/Login'
+import Signup from './pages/Signup'
 import Dashboard from './pages/Dashboard'
 import Projects from './pages/Projects'
 import ProjectDetail from './pages/ProjectDetail'
@@ -33,6 +34,7 @@ function AppRoutes() {
       
       {/* Auth routes */}
       <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Signup />} />
       
       {/* Private routes (authentication required) */}
       <Route
