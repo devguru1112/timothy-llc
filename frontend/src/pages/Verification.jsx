@@ -22,7 +22,7 @@ export default function Verification() {
     try {
       setLoading(true)
       setError('')
-      const response = await api.post('/api/auth/verify/phone/send/')
+      const response = await api.post('/auth/verify/phone/send/')
       setMessage(response.data.message)
       if (response.data.code) {
         setMessage(`Code sent! (Debug mode: ${response.data.code})`)
@@ -38,7 +38,7 @@ export default function Verification() {
     try {
       setLoading(true)
       setError('')
-      const response = await api.post('/api/auth/verify/phone/', { code: phoneCode })
+      const response = await api.post('/auth/verify/phone/', { code: phoneCode })
       setMessage(response.data.message)
       await fetchUser()
       setPhoneCode('')
@@ -53,7 +53,7 @@ export default function Verification() {
     try {
       setLoading(true)
       setError('')
-      const response = await api.post('/api/auth/verify/email/send/')
+      const response = await api.post('/auth/verify/email/send/')
       setMessage(response.data.message)
       if (response.data.code) {
         setMessage(`Code sent! (Debug mode: ${response.data.code})`)
@@ -69,7 +69,7 @@ export default function Verification() {
     try {
       setLoading(true)
       setError('')
-      const response = await api.post('/api/auth/verify/email/', { code: emailCode })
+      const response = await api.post('/auth/verify/email/', { code: emailCode })
       setMessage(response.data.message)
       await fetchUser()
       setEmailCode('')

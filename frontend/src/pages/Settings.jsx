@@ -10,12 +10,12 @@ export default function Settings() {
   const [newSkill, setNewSkill] = useState('')
 
   const { data: profile } = useQuery('profile', async () => {
-    const response = await api.get('/api/auth/profile/')
+    const response = await api.get('/auth/profile/')
     return response.data
   })
 
   const updateMutation = useMutation(
-    (data) => api.patch('/api/auth/profile/', data),
+    (data) => api.patch('/auth/profile/', data),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('profile')

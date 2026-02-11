@@ -6,8 +6,8 @@ import { BriefcaseIcon, EnvelopeIcon, CheckCircleIcon } from '@heroicons/react/2
 export default function Dashboard() {
   const { data: stats, isLoading } = useQuery('dashboard-stats', async () => {
     const [projects, outreach] = await Promise.all([
-      api.get('/api/projects/leads/'),
-      api.get('/api/outreach/messages/'),
+      api.get('/projects/leads/'),
+      api.get('/outreach/messages/'),
     ])
     
     const availableProjects = projects.data.results?.filter(

@@ -11,13 +11,13 @@ export default function ProjectDetail() {
   const { data: project, isLoading } = useQuery(
     ['project', id],
     async () => {
-      const response = await api.get(`/api/projects/leads/${id}/`)
+      const response = await api.get(`/projects/leads/${id}/`)
       return response.data
     }
   )
 
   const matchMutation = useMutation(
-    () => api.post(`/api/projects/leads/${id}/match/`),
+    () => api.post(`/projects/leads/${id}/match/`),
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['project', id])

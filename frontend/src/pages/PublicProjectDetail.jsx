@@ -13,13 +13,13 @@ export default function PublicProjectDetail() {
   const { data: project, isLoading } = useQuery(
     ['public-project', id],
     async () => {
-      const response = await api.get(`/api/projects/leads/${id}/`)
+      const response = await api.get(`/projects/leads/${id}/`)
       return response.data
     }
   )
 
   const applicationMutation = useMutation(
-    (formData) => api.post('/api/projects/applications/', formData),
+    (formData) => api.post('/projects/applications/', formData),
     {
       onSuccess: (data) => {
         setShowApplicationForm(false)

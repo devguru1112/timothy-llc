@@ -5,7 +5,7 @@ import { format } from 'date-fns'
 
 export default function Projects() {
   const { data, isLoading, error } = useQuery('projects', async () => {
-    const response = await api.get('/api/projects/leads/')
+    const response = await api.get('/projects/leads/')
     return response.data
   })
 

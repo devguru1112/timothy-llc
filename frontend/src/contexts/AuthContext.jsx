@@ -27,7 +27,7 @@ export function AuthProvider({ children }) {
 
   const fetchUser = async () => {
     try {
-      const response = await api.get('/api/auth/profile/')
+      const response = await api.get('/auth/profile/')
       setUser(response.data)
     } catch (error) {
       localStorage.removeItem('access_token')
@@ -40,7 +40,7 @@ export function AuthProvider({ children }) {
 
   const login = async (username, password) => {
     try {
-      const response = await api.post('/api/auth/login/', { username, password })
+      const response = await api.post('/auth/login/', { username, password })
       const { access, refresh } = response.data
       localStorage.setItem('access_token', access)
       localStorage.setItem('refresh_token', refresh)
@@ -54,7 +54,7 @@ export function AuthProvider({ children }) {
 
   const register = async (userData) => {
     try {
-      const response = await api.post('/api/auth/register/', userData)
+      const response = await api.post('/auth/register/', userData)
       const { access, refresh } = response.data
       localStorage.setItem('access_token', access)
       localStorage.setItem('refresh_token', refresh)
