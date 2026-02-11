@@ -70,7 +70,7 @@ from projects.models import SourcePlatform
 
 platform = SourcePlatform.objects.create(
     name="RemoteOK",
-    url="https://remoteok.com/api",
+    url="https://remoteok.com/json",
     user_count=500000,
     scraping_method="public_api",
     rate_limit_per_minute=10,
@@ -192,13 +192,13 @@ Best for: Platforms with public APIs (RemoteOK, GitHub Jobs, etc.)
 ```python
 platform = SourcePlatform.objects.create(
     name="RemoteOK API",
-    url="https://remoteok.com/api",
+    url="https://remoteok.com/json",
     scraping_method="public_api",
     rate_limit_per_minute=10
 )
 ```
 
-**Note:** You need to implement `_parse_api_response()` in `APIScraper` class for your specific API format.
+**Note:** The built-in `APIScraper` parses RemoteOK-style JSON. Other APIs that return a list of job objects with `position`/`title`, `description`, `url` are supported; add custom logic in `_parse_api_response()` for other formats.
 
 ### 3. Public HTML Scraping
 
@@ -420,6 +420,18 @@ GET /api/projects/leads/
 1. Django logs: `python manage.py runserver` (check console)
 2. Celery logs: Check Celery worker output
 3. Scraping job error: Admin → Scraping Jobs → View error_message
+
+### Issue: 404 or 403 errors
+
+**404 Not Found (e.g. TechJobs Pro, custom API):**
+- The platform URL may be wrong or the API may not exist. Sample data uses placeholder URLs; for a working API use `https://remoteok.com/json` and scraping method `public_api`.
+- In Django Admin → Projects → Source Platforms, edit the platform and set **URL** to a real endpoint (e.g. `https://remoteok.com/json` for the first sample platform).
+
+**403 Forbidden (e.g. Stack Overflow Jobs RSS):**
+- Some feeds (Stack Overflow Jobs, Indeed-powered feeds) use Cloudflare or bot detection and may block server/script requests. The scraper uses browser-like headers to reduce this; if 403 persists:
+  - Try from a different network (some hosts are blocked).
+  - Consider using a different RSS source (e.g. We Work Remotely: `https://weworkremotely.com/categories/remote-programming-jobs.rss`).
+  - Stack Overflow Jobs may require using their official API or accepting that the RSS feed is not always accessible to automation.
 
 ### Issue: Duplicate projects
 

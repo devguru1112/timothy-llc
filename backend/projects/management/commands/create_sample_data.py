@@ -58,16 +58,18 @@ class Command(BaseCommand):
         platforms_data = [
             {
                 'name': 'TechJobs Pro',
-                'url': 'https://techjobspro.com/api',
+                'url': 'https://remoteok.com/json',
                 'user_count': 250000,
                 'scraping_method': 'public_api',
+                'rate_limit_per_minute': 10,
                 'is_active': True,
             },
             {
                 'name': 'Remote Work Hub',
-                'url': 'https://remoteworkhub.com/feed',
+                'url': 'https://weworkremotely.com/categories/remote-programming-jobs.rss',
                 'user_count': 180000,
                 'scraping_method': 'rss_feed',
+                'rate_limit_per_minute': 5,
                 'is_active': True,
             },
             {
@@ -75,6 +77,7 @@ class Command(BaseCommand):
                 'url': 'https://freelancemarketplace.com',
                 'user_count': 500000,
                 'scraping_method': 'public_scrape',
+                'rate_limit_per_minute': 10,
                 'is_active': True,
             },
         ]

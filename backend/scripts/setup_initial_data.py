@@ -15,7 +15,7 @@ def setup_source_platforms():
     platforms = [
         {
             'name': 'RemoteOK',
-            'url': 'https://remoteok.com/api',
+            'url': 'https://remoteok.com/json',
             'user_count': 500000,
             'scraping_method': 'public_api',
             'rate_limit_per_minute': 10,
