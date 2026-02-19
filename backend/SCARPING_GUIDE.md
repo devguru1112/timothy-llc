@@ -5,12 +5,13 @@ This guide explains how to use the scraping system to collect project data from 
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Setting Up Source Platforms](#setting-up-source-platforms)
-3. [Triggering Scraping](#triggering-scraping)
-4. [Scraping Methods](#scraping-methods)
-5. [Creating Custom Scrapers](#creating-custom-scrapers)
-6. [Testing Scraping](#testing-scraping)
-7. [Troubleshooting](#troubleshooting)
+2. [Job Categories](#job-categories)
+3. [Setting Up Source Platforms](#setting-up-source-platforms)
+4. [Triggering Scraping](#triggering-scraping)
+5. [Scraping Methods](#scraping-methods)
+6. [Creating Custom Scrapers](#creating-custom-scrapers)
+7. [Testing Scraping](#testing-scraping)
+8. [Troubleshooting](#troubleshooting)
 
 ## Overview
 
@@ -22,7 +23,37 @@ The scraping system supports three methods:
 All scraped projects are automatically:
 - Qualified (scored for relevance and quality)
 - Deduplicated (same URL won't be added twice)
+- Matched to **job categories** (e.g. SEO, Marketing, Social Media) via keywords
 - Stored in the database
+
+Scraping can be filtered by **categories**: the admin selects which categories to scrape, and the app scrapes in the background only jobs that match those categories.
+
+## Job Categories
+
+Admins can add, update, and delete **Job Categories**. Each category has a name and a list of **keywords** used to match scraped jobs (title + description).
+
+### Example categories
+
+- **SEO** – keywords: SEO, search engine optimization, keyword research, backlinks, etc.
+- **Marketing** – keywords: marketing, digital marketing, campaign, brand, growth, etc.
+- **Social Media** – keywords: social media, Facebook, Instagram, LinkedIn, engagement, etc.
+- **Website Design** – keywords: website design, web design, UI, UX, WordPress, etc.
+- **LinkedIn Management** – keywords: LinkedIn, LinkedIn strategy, B2B LinkedIn, etc.
+
+### Managing categories
+
+1. **Django Admin**: Go to **Projects → Job Categories** to add, edit, or delete categories. Set **Keywords** as a JSON list, e.g. `["SEO", "search engine optimization", "keyword research"]`.
+2. **API**: `GET/POST/PUT/DELETE /api/projects/categories/` (authenticated).
+
+### Selecting categories for scraping
+
+1. **Scraping Configuration (Admin)**  
+   - Go to **Projects → Scraping Configurations**.  
+   - Create or edit a config, select the **categories** you want to scrape, and set **Is active**.  
+   - When you trigger scraping (API or Celery) **without** passing `category_ids`, the app uses the **active** Scraping Config’s categories. If no config is active or no categories are selected, all scraped jobs are saved (no category filter).
+
+2. **API (per request)**  
+   - When triggering scraping via API, you can pass `category_ids` (list of category IDs) to filter only jobs matching those categories for that run.
 
 ## Setting Up Source Platforms
 
@@ -91,16 +122,20 @@ Authorization: Bearer <your-token>
 
 {
   "platform_id": 1,
-  "limit": 50
+  "limit": 50,
+  "category_ids": [1, 2, 3]
 }
 ```
+
+- `category_ids` (optional): list of job category IDs to filter by. If omitted, the active **Scraping Configuration** categories are used; if none, all jobs are scraped.
 
 Response:
 ```json
 {
   "status": "started",
   "platform": "Stack Overflow Jobs",
-  "task_id": "abc123-def456-..."
+  "task_id": "abc123-def456-...",
+  "category_ids": [1, 2, 3]
 }
 ```
 
@@ -112,9 +147,12 @@ Content-Type: application/json
 Authorization: Bearer <your-token>
 
 {
-  "limit": 50
+  "limit": 50,
+  "category_ids": [1, 2, 3]
 }
 ```
+
+- `category_ids` (optional): same as above. Scraping runs in the background per platform.
 
 ### Method 2: Via Django Shell
 
@@ -123,10 +161,10 @@ python manage.py shell
 
 from scrapers.tasks import scrape_platform, scrape_all_active_platforms
 
-# Scrape specific platform
+# Scrape specific platform (optional: category_ids=[1, 2, 3])
 result = scrape_platform.delay(platform_id=1, limit=50)
 
-# Scrape all active platforms
+# Scrape all active platforms (optional: category_ids=[1, 2, 3])
 result = scrape_all_active_platforms.delay(limit=50)
 ```
 

@@ -3,7 +3,7 @@ Celery tasks for background scraping and qualification.
 """
 from celery import shared_task
 from django.utils import timezone
-from projects.models import ProjectLead, SourcePlatform
+from projects.models import ProjectLead, SourcePlatform, JobCategory, ScrapingConfig
 from scrapers.models import ScrapingJob
 from scrapers.scrapers import get_scraper
 from scrapers.qualifiers import ProjectQualifier
@@ -12,9 +12,55 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def match_categories(project_data: dict) -> list:
+    """
+    Match a project to categories based on keywords.
+    Returns list of category IDs that match.
+    """
+    text = f"{project_data.get('title', '')} {project_data.get('description', '')}".lower()
+    matched_categories = []
+    
+    # Get active categories
+    categories = JobCategory.objects.filter(is_active=True)
+    
+    for category in categories:
+        if not category.keywords:
+            continue
+        
+        # Check if any keyword matches
+        for keyword in category.keywords:
+            if keyword.lower() in text:
+                matched_categories.append(category.id)
+                break  # Only add category once
+    
+    return matched_categories
+
+
+def get_active_scraping_categories() -> list:
+    """
+    Get category IDs from active scraping configuration.
+    Returns empty list if no active config exists.
+    """
+    try:
+        config = ScrapingConfig.objects.filter(is_active=True).first()
+        if config:
+            return list(config.categories.filter(is_active=True).values_list('id', flat=True))
+    except Exception as e:
+        logger.warning(f"Error getting scraping config: {e}")
+    
+    return []
+
+
 @shared_task
-def scrape_platform(platform_id: int, limit: int = 50):
-    """Scrape projects from a specific platform."""
+def scrape_platform(platform_id: int, limit: int = 50, category_ids: list = None):
+    """
+    Scrape projects from a specific platform.
+    
+    Args:
+        platform_id: ID of the platform to scrape
+        limit: Maximum number of projects to scrape
+        category_ids: Optional list of category IDs to filter by. If None, uses active ScrapingConfig.
+    """
     try:
         platform = SourcePlatform.objects.get(id=platform_id, is_active=True)
         job = ScrapingJob.objects.create(
@@ -22,6 +68,10 @@ def scrape_platform(platform_id: int, limit: int = 50):
             status='running',
             started_at=timezone.now()
         )
+        
+        # Get categories to filter by
+        if category_ids is None:
+            category_ids = get_active_scraping_categories()
         
         scraper = get_scraper(platform)
         projects = scraper.scrape(limit=limit)
@@ -31,6 +81,15 @@ def scrape_platform(platform_id: int, limit: int = 50):
             # Check if project already exists
             if ProjectLead.objects.filter(source_url=project_data.get('source_url')).exists():
                 continue
+            
+            # Match categories
+            matched_category_ids = match_categories(project_data)
+            
+            # Filter by selected categories if specified
+            if category_ids:
+                # Only include if project matches at least one selected category
+                if not any(cat_id in matched_category_ids for cat_id in category_ids):
+                    continue
             
             # Create new project lead
             project = ProjectLead.objects.create(
@@ -46,6 +105,10 @@ def scrape_platform(platform_id: int, limit: int = 50):
                 budget_max=project_data.get('budget_max'),
                 skills_required=project_data.get('skills_required', []),
             )
+            
+            # Assign matched categories
+            if matched_category_ids:
+                project.categories.set(matched_category_ids)
             
             # Qualify the project
             qualifier = ProjectQualifier()
@@ -81,11 +144,17 @@ def scrape_platform(platform_id: int, limit: int = 50):
 
 
 @shared_task
-def scrape_all_active_platforms(limit: int = 50):
-    """Scrape all active platforms."""
+def scrape_all_active_platforms(limit: int = 50, category_ids: list = None):
+    """
+    Scrape all active platforms.
+    
+    Args:
+        limit: Maximum number of projects per platform
+        category_ids: Optional list of category IDs to filter by. If None, uses active ScrapingConfig.
+    """
     platforms = SourcePlatform.objects.filter(is_active=True)
     results = []
     for platform in platforms:
-        result = scrape_platform.delay(platform.id, limit)
+        result = scrape_platform.delay(platform.id, limit, category_ids)
         results.append({'platform': platform.name, 'task_id': result.id})
     return results

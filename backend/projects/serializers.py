@@ -1,6 +1,46 @@
 from rest_framework import serializers
-from .models import ProjectLead, SourcePlatform, ProjectMatch, ProjectApplication, SystemSettings
+from .models import (
+    ProjectLead, SourcePlatform, ProjectMatch, ProjectApplication, 
+    SystemSettings, JobCategory, ScrapingConfig
+)
 from users.serializers import UserSerializer
+
+
+class JobCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = JobCategory
+        fields = '__all__'
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class ScrapingConfigSerializer(serializers.ModelSerializer):
+    categories = JobCategorySerializer(many=True, read_only=True)
+    category_ids = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=JobCategory.objects.all(),
+        source='categories',
+        write_only=True,
+        required=False
+    )
+    
+    class Meta:
+        model = ScrapingConfig
+        fields = '__all__'
+        read_only_fields = ['created_at', 'updated_at', 'updated_by']
+    
+    def create(self, validated_data):
+        category_ids = validated_data.pop('categories', [])
+        instance = super().create(validated_data)
+        if category_ids:
+            instance.categories.set(category_ids)
+        return instance
+    
+    def update(self, instance, validated_data):
+        category_ids = validated_data.pop('categories', None)
+        instance = super().update(instance, validated_data)
+        if category_ids is not None:
+            instance.categories.set(category_ids)
+        return instance
 
 
 class SourcePlatformSerializer(serializers.ModelSerializer):
@@ -20,6 +60,14 @@ class SystemSettingsSerializer(serializers.ModelSerializer):
 class ProjectLeadSerializer(serializers.ModelSerializer):
     source_platform_name = serializers.CharField(source='source_platform.name', read_only=True)
     matched_user_username = serializers.CharField(source='matched_user.username', read_only=True, allow_null=True)
+    categories = JobCategorySerializer(many=True, read_only=True)
+    category_ids = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=JobCategory.objects.filter(is_active=True),
+        source='categories',
+        write_only=True,
+        required=False
+    )
     
     class Meta:
         model = ProjectLead
@@ -31,6 +79,7 @@ class ProjectLeadListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for list views."""
     source_platform_name = serializers.CharField(source='source_platform.name', read_only=True)
     matched_user_username = serializers.CharField(source='matched_user.username', read_only=True, allow_null=True)
+    categories = JobCategorySerializer(many=True, read_only=True)
     
     class Meta:
         model = ProjectLead
@@ -39,7 +88,7 @@ class ProjectLeadListSerializer(serializers.ModelSerializer):
             'contact_email', 'contact_name', 'company_name', 'budget_min', 
             'budget_max', 'budget_currency', 'skills_required', 'relevance_score',
             'quality_score', 'status', 'matched_user_username', 'scraped_at',
-            'created_at', 'is_public'
+            'created_at', 'is_public', 'categories'
         ]
 
 

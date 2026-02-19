@@ -6,7 +6,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q
 from .models import (
     ProjectLead, SourcePlatform, ProjectMatch, 
-    ProjectApplication, SystemSettings
+    ProjectApplication, SystemSettings, JobCategory, ScrapingConfig
 )
 from .serializers import (
     ProjectLeadSerializer, 
@@ -17,6 +17,8 @@ from .serializers import (
     ProjectApplicationSerializer,
     ProjectApplicationCreateSerializer,
     SystemSettingsSerializer,
+    JobCategorySerializer,
+    ScrapingConfigSerializer,
 )
 from .services import ProjectMatchingService
 
@@ -42,10 +44,51 @@ class SystemSettingsViewSet(viewsets.ModelViewSet):
         return SystemSettings.objects.none()
 
 
+class JobCategoryViewSet(viewsets.ModelViewSet):
+    """ViewSet for job categories."""
+    queryset = JobCategory.objects.all()
+    serializer_class = JobCategorySerializer
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ['is_active']
+    search_fields = ['name']
+    permission_classes = [IsAuthenticated]  # Require authentication
+    
+    def get_queryset(self):
+        # Admins can see all, regular users see only active
+        if self.request.user.is_superuser:
+            return JobCategory.objects.all()
+        return JobCategory.objects.filter(is_active=True)
+
+
+class ScrapingConfigViewSet(viewsets.ModelViewSet):
+    """Admin-only viewset for scraping configurations."""
+    queryset = ScrapingConfig.objects.all()
+    serializer_class = ScrapingConfigSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ['is_active']
+    search_fields = ['name']
+    
+    def get_queryset(self):
+        # Only superusers can manage scraping configs
+        if self.request.user.is_superuser:
+            return ScrapingConfig.objects.all()
+        # Regular users can view active configs
+        return ScrapingConfig.objects.filter(is_active=True)
+    
+    def perform_create(self, serializer):
+        """Set updated_by when creating."""
+        serializer.save(updated_by=self.request.user)
+    
+    def perform_update(self, serializer):
+        """Set updated_by when updating."""
+        serializer.save(updated_by=self.request.user)
+
+
 class ProjectLeadViewSet(viewsets.ModelViewSet):
-    queryset = ProjectLead.objects.select_related('source_platform', 'matched_user').all()
+    queryset = ProjectLead.objects.select_related('source_platform', 'matched_user').prefetch_related('categories').all()
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['status', 'source_platform', 'matched_user', 'is_public']
+    filterset_fields = ['status', 'source_platform', 'matched_user', 'is_public', 'categories']
     search_fields = ['title', 'description', 'company_name', 'contact_name']
     ordering_fields = ['relevance_score', 'quality_score', 'scraped_at', 'created_at']
     ordering = ['-relevance_score', '-scraped_at']
