@@ -1,0 +1,18 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+<div id="content-main">
+  <h1>{{ title }}</h1>
+  <p>Run job scraping for all active platforms now. The task runs in the background.</p>
+  <form method="post" action="">
+    {% csrf_token %}
+    <div class="submit-row">
+      <input type="submit" value="Scrape now" class="default" name="scrape_now">
+    </div>
+  </form>
+  <p class="help">
+    Check <a href="{% url 'admin:scrapers_scrapingjob_changelist' %}">Scraping jobs</a> for status after starting.
+  </p>
+</div>
+{% endblock %}

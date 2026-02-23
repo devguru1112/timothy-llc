@@ -113,16 +113,15 @@ class ProjectLeadViewSet(viewsets.ModelViewSet):
         return ProjectLeadSerializer
 
     def get_queryset(self):
-        """Filter queryset based on authentication and verification status."""
+        """Filter queryset based on authentication and verification status.
+        Do not slice here—slicing is applied in filter_queryset() after ordering,
+        so that OrderingFilter can run on an unsliced queryset.
+        """
         queryset = super().get_queryset()
         
         if not self.request.user.is_authenticated:
             # For anonymous users, only show public projects
             queryset = queryset.filter(is_public=True, status__in=['new', 'qualified'])
-            
-            # Limit to free projects count
-            free_limit = SystemSettings.get_int_setting('free_projects_limit', 10)
-            queryset = queryset[:free_limit]
         else:
             # Authenticated users
             user = self.request.user
@@ -132,9 +131,16 @@ class ProjectLeadViewSet(viewsets.ModelViewSet):
             else:
                 # Unverified users see limited projects
                 queryset = queryset.filter(is_public=True, status__in=['new', 'qualified'])
-                free_limit = SystemSettings.get_int_setting('free_projects_limit', 10)
-                queryset = queryset[:free_limit]
         
+        return queryset
+
+    def filter_queryset(self, queryset):
+        """Apply filters and ordering, then apply free_projects_limit for anonymous/unverified users."""
+        queryset = super().filter_queryset(queryset)
+        # Apply limit after ordering so we don't call order_by() on a sliced queryset
+        if not self.request.user.is_authenticated or not getattr(self.request.user, 'is_fully_verified', False):
+            free_limit = SystemSettings.get_int_setting('free_projects_limit', 10)
+            queryset = queryset[:free_limit]
         return queryset
 
     @action(detail=False, methods=['get'], permission_classes=[AllowAny])

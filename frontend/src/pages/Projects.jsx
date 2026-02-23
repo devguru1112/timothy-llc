@@ -35,7 +35,7 @@ export default function Projects() {
           </p>
         </div>
         <Link
-          to="/projects/available"
+          to="/dashboard/projects/available"
           className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
         >
           View Available
@@ -47,7 +47,7 @@ export default function Projects() {
           {projects.map((project) => (
             <li key={project.id}>
               <Link
-                to={`/projects/${project.id}`}
+                to={`/dashboard/projects/${project.id}`}
                 className="block hover:bg-gray-50 px-4 py-4 sm:px-6"
               >
                 <div className="flex items-center justify-between">

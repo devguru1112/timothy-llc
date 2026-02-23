@@ -3,13 +3,18 @@ Celery tasks for background scraping and qualification.
 """
 from celery import shared_task
 from django.utils import timezone
-from projects.models import ProjectLead, SourcePlatform, JobCategory, ScrapingConfig
+from django.core.cache import cache
+from projects.models import ProjectLead, SourcePlatform, JobCategory, ScrapingConfig, SystemSettings
 from scrapers.models import ScrapingJob
 from scrapers.scrapers import get_scraper
 from scrapers.qualifiers import ProjectQualifier
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Cache key to avoid running scheduled scrape more than once per minute
+SCHEDULED_SCRAPE_CACHE_KEY = 'scrapers:scheduled_scrape_last_run'
+SCHEDULED_SCRAPE_CACHE_TTL = 90  # seconds
 
 
 def match_categories(project_data: dict) -> list:
@@ -158,3 +163,44 @@ def scrape_all_active_platforms(limit: int = 50, category_ids: list = None):
         result = scrape_platform.delay(platform.id, limit, category_ids)
         results.append({'platform': platform.name, 'task_id': result.id})
     return results
+
+
+@shared_task
+def run_scheduled_scrape():
+    """
+    Run by Celery Beat every minute. If scraping_schedule_enabled is set and
+    current time matches scraping_schedule_time (HH:MM), trigger scrape_all_active_platforms.
+    """
+    try:
+        enabled = SystemSettings.get_setting('scraping_schedule_enabled', '1').strip() in ('1', 'true', 'yes')
+        if not enabled:
+            return {'status': 'skipped', 'reason': 'scheduled scraping disabled'}
+
+        schedule_time = SystemSettings.get_setting('scraping_schedule_time', '02:00').strip()
+        if not schedule_time or ':' not in schedule_time:
+            return {'status': 'skipped', 'reason': 'invalid scraping_schedule_time'}
+
+        parts = schedule_time.split(':', 2)
+        try:
+            target_hour = int(parts[0])
+            target_minute = int(parts[1]) if len(parts) > 1 else 0
+        except (ValueError, IndexError):
+            return {'status': 'skipped', 'reason': 'invalid scraping_schedule_time'}
+
+        now = timezone.localtime(timezone.now())
+        if now.hour != target_hour or now.minute != target_minute:
+            return {'status': 'skipped', 'reason': 'time not matching'}
+
+        # Avoid duplicate run in the same minute (e.g. if Beat runs twice)
+        cache_key = f"{SCHEDULED_SCRAPE_CACHE_KEY}:{now.hour}:{now.minute}"
+        if cache.get(cache_key):
+            return {'status': 'skipped', 'reason': 'already ran this minute'}
+        cache.set(cache_key, True, SCHEDULED_SCRAPE_CACHE_TTL)
+
+        limit = SystemSettings.get_int_setting('scraping_schedule_limit', 50)
+        scrape_all_active_platforms.delay(limit=limit)
+        logger.info("Scheduled scrape triggered at %s", schedule_time)
+        return {'status': 'triggered', 'limit': limit}
+    except Exception as e:
+        logger.exception("run_scheduled_scrape failed: %s", e)
+        return {'status': 'error', 'message': str(e)}

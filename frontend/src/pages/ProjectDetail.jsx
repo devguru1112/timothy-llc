@@ -22,6 +22,7 @@ export default function ProjectDetail() {
       onSuccess: () => {
         queryClient.invalidateQueries(['project', id])
         queryClient.invalidateQueries('projects')
+        queryClient.invalidateQueries('projects-available')
       },
     }
   )
@@ -33,7 +34,7 @@ export default function ProjectDetail() {
     <div>
       <div className="mb-8">
         <button
-          onClick={() => navigate('/projects')}
+          onClick={() => navigate('/dashboard/projects')}
           className="text-blue-600 hover:text-blue-800 mb-4"
         >
           ← Back to Projects

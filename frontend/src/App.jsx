@@ -6,6 +6,8 @@ import Verification from './pages/Verification'
 import Dashboard from './pages/Dashboard'
 import Projects from './pages/Projects'
 import ProjectDetail from './pages/ProjectDetail'
+import AvailableProjects from './pages/AvailableProjects'
+import Scraping from './pages/Scraping'
 import Outreach from './pages/Outreach'
 import Settings from './pages/Settings'
 import PublicProjects from './pages/PublicProjects'
@@ -79,7 +81,9 @@ function AppRoutes() {
       >
         <Route index element={<Dashboard />} />
         <Route path="projects" element={<Projects />} />
+        <Route path="projects/available" element={<AvailableProjects />} />
         <Route path="projects/:id" element={<ProjectDetail />} />
+        <Route path="scraping" element={<Scraping />} />
         <Route path="outreach" element={<Outreach />} />
         <Route path="settings" element={<Settings />} />
       </Route>
@@ -95,7 +99,9 @@ function AppRoutes() {
       >
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="projects" element={<Projects />} />
+        <Route path="projects/available" element={<AvailableProjects />} />
         <Route path="projects/:id" element={<ProjectDetail />} />
+        <Route path="scraping" element={<Scraping />} />
         <Route path="outreach" element={<Outreach />} />
         <Route path="settings" element={<Settings />} />
       </Route>

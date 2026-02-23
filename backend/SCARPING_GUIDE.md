@@ -111,6 +111,40 @@ platform = SourcePlatform.objects.create(
 
 ## Triggering Scraping
 
+### Scrape now (button)
+
+Admins can run scraping on demand:
+
+- **Frontend**: Log in as an admin (superuser), go to **Settings**. The **Scraping** section shows a **Run scraping now** button. Click it to start scraping in the background for all active platforms.
+- **API**: `POST /api/scrapers/jobs/scrape_all/` with body `{"limit": 50}` (admin only). Returns `{"status": "started", "task_id": "..."}`.
+
+### Viewing the scraping process on the website (admin)
+
+Admins can see scraping job history and live progress in the app:
+
+1. Log in as an admin (superuser).
+2. In the top navigation, click **Scraping** (the link is only visible to admins).
+3. The **Scraping** page shows:
+   - A **Run scraping now** button to start a new run.
+   - A table of **recent scraping jobs**: platform, status (pending / running / completed / failed), projects found, projects added, started at, completed at, and any error message.
+4. While any job is **running**, the list auto-refreshes every few seconds so you can see when it completes and how many projects were added.
+5. You can click **Refresh** to reload the list manually.
+
+The same job history is available in **Django Admin → Scrapers → Scraping jobs**.
+
+### Automatic scraping at a set time
+
+Scraping can run **once per day** at a time you choose. Admin can change the time without restarting Celery Beat.
+
+- **How it works**: Celery Beat runs a task every minute. When the current time (server timezone) matches the configured time, it triggers `scrape_all_active_platforms`. The time is read from **System Settings** (or the schedule API), so changing it takes effect on the next run.
+- **Configure the time**:
+  - **Frontend (admin)**: **Settings → Scraping** → set **Enabled**, **Time** (24h, e.g. `02:00`), and **Limit per platform**. Changes are saved on blur/change.
+  - **API**: `GET /api/scrapers/schedule/` returns `{ "enabled": true, "time": "02:00", "limit": 50 }`. `PATCH /api/scrapers/schedule/` with `{ "enabled": true, "time": "02:00", "limit": 50 }` (admin only).
+  - **Django Admin**: **Projects → System Settings**. Add or edit:
+    - `scraping_schedule_enabled`: `1` (enabled) or `0` (disabled).
+    - `scraping_schedule_time`: 24h time, e.g. `02:00`.
+    - `scraping_schedule_limit`: max projects per platform (default `50`).
+
 ### Method 1: Via API (Recommended)
 
 #### Scrape a Specific Platform

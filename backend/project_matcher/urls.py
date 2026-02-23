@@ -4,7 +4,10 @@ URL configuration for project_matcher project.
 from django.contrib import admin
 from django.urls import path, include
 
+from scrapers.admin_views import scrape_now_view
+
 urlpatterns = [
+    path('admin/scrape-now/', admin.site.admin_view(scrape_now_view), name='admin_scrape_now'),
     path('admin/', admin.site.urls),
     path('api/auth/', include('users.urls')),
     path('api/projects/', include('projects.urls')),

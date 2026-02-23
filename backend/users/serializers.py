@@ -5,14 +5,15 @@ from .models import User
 
 class UserSerializer(serializers.ModelSerializer):
     is_fully_verified = serializers.BooleanField(read_only=True)
+    is_superuser = serializers.BooleanField(read_only=True)
     
     class Meta:
         model = User
         fields = ['id', 'username', 'email', 'phone', 'bio', 'skills', 
                   'portfolio_url', 'is_community_member', 'priority_level',
-                  'phone_verified', 'email_verified', 'is_fully_verified',
+                  'phone_verified', 'email_verified', 'is_fully_verified', 'is_superuser',
                   'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at', 'phone_verified', 'email_verified']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'phone_verified', 'email_verified', 'is_superuser']
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):

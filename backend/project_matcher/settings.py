@@ -62,7 +62,7 @@ ROOT_URLCONF = 'project_matcher.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'project_matcher' / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -171,15 +171,10 @@ CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
 CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_BEAT_SCHEDULE = {
-    'scrape-all-platforms-daily': {
-        'task': 'scrapers.tasks.scrape_all_active_platforms',
-        'schedule': crontab(hour=2, minute=0),  # Run daily at 2 AM
-        'kwargs': {'limit': 50}
-    },
-    'scrape-all-platforms-hourly': {
-        'task': 'scrapers.tasks.scrape_all_active_platforms',
-        'schedule': crontab(minute=0),  # Run every hour
-        'kwargs': {'limit': 20}
+    # Runs every minute; triggers scrape only when current time matches admin-configured scraping_schedule_time
+    'run-scheduled-scrape': {
+        'task': 'scrapers.tasks.run_scheduled_scrape',
+        'schedule': crontab(),  # every minute
     },
 }
 
