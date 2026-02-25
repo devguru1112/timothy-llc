@@ -23,6 +23,16 @@ def setup_settings():
             'value': '3',
             'description': 'Number of free applications allowed before requiring registration',
         },
+        {
+            'key': 'usajobs_api_key',
+            'value': '',
+            'description': 'USAJobs.gov API Authorization-Key (required for USAJobs scraper). Get one at https://www.usajobs.gov/Help/working-in-government/unique-hiring-paths/students/federal-internships/',
+        },
+        {
+            'key': 'usajobs_user_email',
+            'value': '',
+            'description': 'Email used as User-Agent for USAJobs.gov API (required for USAJobs scraper).',
+        },
     ]
     
     created_count = 0

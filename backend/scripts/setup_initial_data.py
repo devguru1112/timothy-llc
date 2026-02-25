@@ -54,10 +54,26 @@ def setup_source_platforms():
     platforms = [
         {
             'name': 'RemoteOK',
-            'url': 'https://remoteok.com/json',
+            'url': 'https://remoteok.com/api',
             'user_count': 500000,
             'scraping_method': 'public_api',
             'rate_limit_per_minute': 10,
+            'is_active': True,
+        },
+        {
+            'name': 'USAJobs',
+            'url': 'https://data.usajobs.gov/api/search',
+            'user_count': 2000000,
+            'scraping_method': 'public_api',
+            'rate_limit_per_minute': 10,
+            'is_active': True,
+        },
+        {
+            'name': 'ITJobPro',
+            'url': 'https://itjobpro.com/jobs/',
+            'user_count': 100000,
+            'scraping_method': 'public_scrape',
+            'rate_limit_per_minute': 5,
             'is_active': True,
         },
         {

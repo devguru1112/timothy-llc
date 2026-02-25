@@ -109,6 +109,22 @@ platform = SourcePlatform.objects.create(
 )
 ```
 
+### Built-in job site scrapers (RemoteOK, USAJobs, ITJobPro)
+
+The backend includes dedicated scrapers for three job sites previously used in manual scripts:
+
+| Site       | Platform URL contains | Method        | Notes |
+|-----------|------------------------|---------------|--------|
+| **RemoteOK** | `remoteok.com`       | Public API    | No auth. Use URL e.g. `https://remoteok.com/api`. |
+| **USAJobs**  | `usajobs.gov`        | Official API  | Requires **System Settings**: `usajobs_api_key` (Authorization-Key) and `usajobs_user_email` (User-Agent). Get an API key from [USAJobs.gov](https://www.usajobs.gov/Help/working-in-government/unique-hiring-paths/students/federal-internships/). |
+| **ITJobPro** | `itjobpro.com`       | Public scrape | Uses job listing page + AJAX. Respects rate limits. |
+
+- **RemoteOK**: Automatically used when a source platform’s URL contains `remoteok.com`. Parses position, company, description, and normalizes job URLs.
+- **USAJobs**: Add a source platform with URL `https://data.usajobs.gov/api/search` (or any URL containing `usajobs.gov`). In **Projects → System Settings** (or API), set `usajobs_api_key` and `usajobs_user_email`; otherwise the USAJobs scraper returns no results.
+- **ITJobPro**: Add a source platform with URL `https://itjobpro.com/jobs/` (or any URL containing `itjobpro.com`). Scraping method can be `public_scrape`; the factory selects the ITJobPro scraper by URL.
+
+Keyword search for **USAJobs** and **ITJobPro** is driven by the **active Scraping Configuration** categories (category names used as search keywords). If no config is active, default keywords (e.g. Marketing, SEO, Social Media) are used.
+
 ## Triggering Scraping
 
 ### Scrape now (button)
@@ -264,7 +280,7 @@ Best for: Platforms with public APIs (RemoteOK, GitHub Jobs, etc.)
 ```python
 platform = SourcePlatform.objects.create(
     name="RemoteOK API",
-    url="https://remoteok.com/json",
+    url="https://remoteok.com/api",
     scraping_method="public_api",
     rate_limit_per_minute=10
 )

@@ -41,7 +41,7 @@ for category in CATEGORIES:
 # =============================
 print("Scraping USAJobs...")
 
-API_KEY = "375e5fd4-e3bd-454d-bd76-207738314c45"
+API_KEY = "irD2ZpgHzFc4imtXSvQeL5Ngf6Wu3Rl1HNrnGVBpyFU="
 USER_EMAIL = "daniel.dimitar.lee@gmail.com"
 
 headers = {
