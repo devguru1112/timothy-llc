@@ -92,7 +92,9 @@ export default function Scraping() {
       )}
       {scrapeNowMutation.isError && (
         <div className="mb-4 p-3 rounded-md bg-red-50 text-red-800 text-sm">
-          {scrapeNowMutation.error?.response?.data?.error || 'Failed to start scraping'}
+          {scrapeNowMutation.error?.response?.data?.error ||
+            scrapeNowMutation.error?.response?.data?.detail ||
+            'Failed to start scraping'}
         </div>
       )}
 

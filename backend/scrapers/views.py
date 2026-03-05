@@ -58,7 +58,17 @@ class ScrapingJobViewSet(viewsets.ReadOnlyModelViewSet):
             return Response({'error': 'Admin only'}, status=status.HTTP_403_FORBIDDEN)
         limit = request.data.get('limit', 50)
         category_ids = request.data.get('category_ids', None)
-        
+
+        # Require at least one active platform so the user gets a clear error instead of "success but nothing happens"
+        active_platforms = SourcePlatform.objects.filter(is_active=True)
+        if not active_platforms.exists():
+            return Response(
+                {
+                    'error': 'No active scraping platforms. Run "python manage.py ensure_scraping_platforms" or enable platforms in Django Admin → Source Platforms.'
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         # Validate category IDs if provided
         if category_ids is not None:
             if not isinstance(category_ids, list):
@@ -68,8 +78,17 @@ class ScrapingJobViewSet(viewsets.ReadOnlyModelViewSet):
             if valid_categories.count() != len(category_ids):
                 return Response({'error': 'Invalid category IDs'}, status=status.HTTP_400_BAD_REQUEST)
             category_ids = list(valid_categories.values_list('id', flat=True))
-        
-        task = scrape_all_active_platforms.delay(limit, category_ids)
+
+        try:
+            task = scrape_all_active_platforms.delay(limit, category_ids)
+        except Exception as e:
+            return Response(
+                {
+                    'error': 'Scraping could not be started. Is the Celery worker running? (e.g. celery -A project_matcher worker -l info)',
+                    'detail': str(e),
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
         return Response({
             'status': 'started',
             'task_id': task.id,

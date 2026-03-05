@@ -40,6 +40,7 @@ export default function Settings() {
     {
       onSuccess: () => {
         queryClient.invalidateQueries('scraping-schedule')
+        queryClient.invalidateQueries('scraping-jobs')
       },
     }
   )
@@ -195,7 +196,9 @@ export default function Settings() {
               )}
               {scrapeNowMutation.isError && (
                 <span className="text-sm text-red-600">
-                  {scrapeNowMutation.error?.response?.data?.error || 'Failed to start'}
+                  {scrapeNowMutation.error?.response?.data?.error ||
+                    scrapeNowMutation.error?.response?.data?.detail ||
+                    'Failed to start'}
                 </span>
               )}
             </div>

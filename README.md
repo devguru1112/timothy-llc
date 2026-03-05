@@ -105,6 +105,32 @@ celery -A project_matcher worker -l info
 celery -A project_matcher beat -l info
 ```
 
+### How to check scraping is working
+
+1. **Create scraping platforms** (once):
+   ```bash
+   cd backend
+   python manage.py ensure_scraping_platforms
+   ```
+
+2. **Test a single platform** (no Celery needed; runs in process):
+   ```bash
+   cd backend
+   python manage.py test_scraper 1 --limit 5
+   ```
+   Use the platform ID from Django Admin → Source Platforms (e.g. 1 = RemoteOK). You should see a list of projects printed.
+
+3. **Run full scraping via the app** (Celery must be running):
+   - Start Redis and a Celery worker (see Celery Setup above).
+   - Log in as a superuser, go to **Settings** or **Scraping**.
+   - Click **Run scraping now**.
+   - On the **Scraping** page you should see jobs per platform with status **running**, then **completed** (or **failed** and an error message).
+
+4. **Verify data**:
+   - **Scraping** page: “Found” and “Added” counts, “Error” column if something failed.
+   - Django Admin → **Project leads**: new leads after a successful run.
+   - Or: `GET /api/projects/leads/` and `GET /api/scrapers/jobs/` to confirm jobs and new leads.
+
 ## Project Structure
 
 ```
