@@ -128,6 +128,8 @@ celery -A project_matcher beat -l info
 
 4. **Verify data**:
    - **Scraping** page: “Found” and “Added” counts, “Error” column if something failed.
+   - “Added” can be lower than “Found”: duplicates (same URL) are skipped; if you use **Scraping categories** in Django Admin, only projects matching those categories are added.
+   - To get more results per run: on the Scraping page set **Limit per platform** (e.g. 200–500) before clicking **Run scraping now**, or set **Limit per platform** in Settings (used by both the button and the daily schedule).
    - Django Admin → **Project leads**: new leads after a successful run.
    - Or: `GET /api/projects/leads/` and `GET /api/scrapers/jobs/` to confirm jobs and new leads.
 

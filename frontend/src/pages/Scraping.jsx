@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
 import { format } from 'date-fns'
 import { ArrowPathIcon } from '@heroicons/react/24/outline'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 const statusColors = {
   pending: 'bg-gray-100 text-gray-800',
@@ -15,6 +15,7 @@ const statusColors = {
 export default function Scraping() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
+  const [runLimit, setRunLimit] = useState(100)
 
   const { data, isLoading, error, refetch } = useQuery(
     'scraping-jobs',
@@ -25,8 +26,21 @@ export default function Scraping() {
     { enabled: !!user?.is_superuser }
   )
 
+  const { data: schedule } = useQuery(
+    'scraping-schedule',
+    async () => {
+      const res = await api.get('/scrapers/schedule/')
+      return res.data
+    },
+    { enabled: !!user?.is_superuser }
+  )
+
+  useEffect(() => {
+    if (schedule?.limit != null) setRunLimit(schedule.limit)
+  }, [schedule])
+
   const scrapeNowMutation = useMutation(
-    () => api.post('/scrapers/jobs/scrape_all/', { limit: 50 }),
+    () => api.post('/scrapers/jobs/scrape_all/', { limit: runLimit }),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('scraping-jobs')
@@ -71,7 +85,19 @@ export default function Scraping() {
             View scraping job history and run scraping now. Jobs run in the background.
           </p>
         </div>
-        <button
+        <div className="flex items-center gap-3">
+          <label className="text-sm text-gray-700">
+            Limit per platform:
+            <input
+              type="number"
+              min={1}
+              max={500}
+              value={runLimit}
+              onChange={(e) => setRunLimit(Number(e.target.value) || 50)}
+              className="ml-2 w-20 rounded border border-gray-300 px-2 py-1 text-sm"
+            />
+          </label>
+          <button
           type="button"
           onClick={() => scrapeNowMutation.mutate()}
           disabled={scrapeNowMutation.isLoading}
@@ -83,7 +109,12 @@ export default function Scraping() {
           />
           {scrapeNowMutation.isLoading ? 'Starting…' : 'Run scraping now'}
         </button>
+        </div>
       </div>
+
+      <p className="mb-4 text-xs text-gray-500">
+        &quot;Added&quot; can be lower than &quot;Found&quot;: duplicates are skipped, and if you use Scraping categories in Django Admin, only projects matching those categories are added. Increase the limit above to fetch more per platform (max 500).
+      </p>
 
       {scrapeNowMutation.isSuccess && (
         <div className="mb-4 p-3 rounded-md bg-green-50 text-green-800 text-sm">

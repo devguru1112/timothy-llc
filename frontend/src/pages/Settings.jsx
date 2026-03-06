@@ -36,7 +36,7 @@ export default function Settings() {
   }, [schedule])
 
   const scrapeNowMutation = useMutation(
-    () => api.post('/scrapers/jobs/scrape_all/', { limit: 50 }),
+    () => api.post('/scrapers/jobs/scrape_all/', { limit: scheduleLimit }),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('scraping-schedule')
