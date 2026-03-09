@@ -130,8 +130,23 @@ def scrape_platform(platform_id: int, limit: int = 50, category_ids: list = None
         job.projects_found = len(projects)
         job.projects_added = projects_added
         job.completed_at = timezone.now()
+        if len(projects) == 0:
+            platform_name = (platform.name or '').lower()
+            if 'usajobs' in platform_name:
+                job.error_message = 'No listings returned. Set usajobs_api_key and usajobs_user_email in Settings → System Settings.'
+            elif 'itjobpro' in platform_name:
+                job.error_message = 'No listings returned (site may have changed or blocked the request).'
+            else:
+                job.error_message = 'No listings returned. Check platform URL and rate limits, or try again later.'
+        else:
+            job.error_message = None
         job.save()
         
+        if projects_added == 0 and len(projects) > 0 and category_ids:
+            logger.warning(
+                "Scrape added 0 projects (all skipped by category filter). "
+                "Check ScrapingConfig categories or run without category filter."
+            )
         logger.info(f"Scraped {projects_added} new projects from {platform.name}")
         return {'status': 'success', 'projects_added': projects_added}
         

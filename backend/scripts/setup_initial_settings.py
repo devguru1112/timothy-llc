@@ -25,12 +25,12 @@ def setup_settings():
         },
         {
             'key': 'usajobs_api_key',
-            'value': '',
+            'value': 'irD2ZpgHzFc4imtXSvQeL5Ngf6Wu3Rl1HNrnGVBpyFU=',
             'description': 'USAJobs.gov API Authorization-Key (required for USAJobs scraper). Get one at https://www.usajobs.gov/Help/working-in-government/unique-hiring-paths/students/federal-internships/',
         },
         {
             'key': 'usajobs_user_email',
-            'value': '',
+            'value': 'daniel.dimitar.lee@gmail.com',
             'description': 'Email used as User-Agent for USAJobs.gov API (required for USAJobs scraper).',
         },
     ]

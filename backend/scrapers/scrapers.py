@@ -3,6 +3,7 @@ Scrapers for various compliant sources.
 Focuses on publicly available data, RSS feeds, and APIs.
 """
 import re
+import json
 import requests
 from bs4 import BeautifulSoup
 from typing import List, Dict, Optional, Any
@@ -119,19 +120,32 @@ class JobBoardScraper(BaseScraper):
 
 class APIScraper(BaseScraper):
     """Scraper for platforms with public APIs (e.g. RemoteOK)."""
-    
+
     def scrape(self, limit: int = 50) -> List[Dict]:
         """Scrape projects from API."""
         try:
-            # Many job APIs (e.g. RemoteOK) use a single JSON endpoint without limit param
             url = self.platform.url
-            if 'remoteok.com' in url or 'remoteok.com/json' in url:
-                response = self.session.get(url, timeout=30)
+            headers = {}
+            if 'remoteok.com' in (url or ''):
+                headers['Accept'] = 'application/json'
+            if headers:
+                req_headers = {**self.session.headers, **headers}
             else:
-                response = self.session.get(url, params={'limit': limit}, timeout=30)
+                req_headers = self.session.headers
+            if 'remoteok.com' in (url or '') or 'remoteok.com/json' in url:
+                response = self.session.get(url, timeout=30, headers=req_headers)
+            else:
+                response = self.session.get(url, params={'limit': limit}, timeout=30, headers=req_headers)
             response.raise_for_status()
-            
-            data = response.json()
+            text = (response.text or "").strip()
+            if not text:
+                logger.warning("API returned empty body: %s", url)
+                return []
+            try:
+                data = response.json()
+            except json.JSONDecodeError as e:
+                logger.warning("API returned non-JSON (status=%s): %s", response.status_code, e)
+                return []
             projects = self._parse_api_response(data, limit)
             return projects
         except Exception as e:
@@ -176,7 +190,14 @@ class APIScraper(BaseScraper):
             source_url = item.get('url') or item.get('apply_url') or item.get('link') or ''
             if base_url and source_url and not source_url.startswith('http'):
                 source_url = base_url.rstrip('/') + '/' + source_url.lstrip('/')
-            source_id = str(item.get('id') or item.get('slug') or source_url.split('/')[-1] or '')
+            # RemoteOK often omits url; build from slug or id
+            if not source_url and base_url and 'remoteok.com' in (base_url or ''):
+                slug = item.get('slug') or item.get('id')
+                if slug:
+                    source_url = base_url.rstrip('/') + '/remote-jobs/' + str(slug)
+            source_id = str(item.get('id') or item.get('slug') or (source_url.split('/')[-1] if source_url else '') or '')
+            if not source_url:
+                continue
             project = {
                 'title': title,
                 'description': description,
@@ -363,7 +384,17 @@ class ITJobProScraper(BaseScraper):
         payload.update(tokens)
         r = self.session.post(ITJOBPRO_AJAX_URL, data=payload, timeout=30)
         r.raise_for_status()
-        data = r.json()
+        text = (r.text or "").strip()
+        if not text:
+            logger.warning("ITJobPro AJAX returned empty body")
+            return []
+        try:
+            data = r.json()
+        except json.JSONDecodeError as e:
+            logger.warning("ITJobPro AJAX returned non-JSON (status=%s, len=%s): %s", r.status_code, len(text), e)
+            return []
+        if not isinstance(data, dict):
+            return []
         html_fragment = data.get("html", "")
         if not (html_fragment or "").strip():
             return []

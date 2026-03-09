@@ -133,6 +133,31 @@ celery -A project_matcher beat -l info
    - Django Admin → **Project leads**: new leads after a successful run.
    - Or: `GET /api/projects/leads/` and `GET /api/scrapers/jobs/` to confirm jobs and new leads.
 
+### Dashboard shows 0 for Available / Matched / Outreach
+
+The dashboard counts come from the database. If you see 0 for all three:
+
+1. **Verify data in the DB** (with venv activated):
+   ```bash
+   cd backend
+   source venv/bin/activate   # or venv\Scripts\activate on Windows
+   python manage.py verify_dashboard_data
+   ```
+   This prints total project leads, "available" and "matched" counts, and outreach sent. If **ProjectLead total** is 0, the dashboard will show 0 until you add data.
+
+2. **Add sample data** (no scraping needed):
+   ```bash
+   python manage.py create_sample_data
+   ```
+   Then refresh the dashboard; you should see sample projects.
+
+3. **Or run scraping** so real scraped projects are saved:
+   - Ensure platforms exist: `python manage.py ensure_scraping_platforms`
+   - Start Celery worker + Redis, then trigger a scrape from **Dashboard → Scraping** (or **Settings**).  
+   If **Scraping categories** are configured and no scraped project matches those categories, "Added" can be 0; adjust categories or disable the filter to get leads.
+
+4. **Log in as a superuser** so the dashboard can see all leads (unverified users may see a limited subset).
+
 ## Project Structure
 
 ```

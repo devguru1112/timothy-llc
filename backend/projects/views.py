@@ -90,7 +90,7 @@ class ProjectLeadViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['status', 'source_platform', 'matched_user', 'is_public', 'categories']
     search_fields = ['title', 'description', 'company_name', 'contact_name']
-    ordering_fields = ['relevance_score', 'quality_score', 'scraped_at', 'created_at']
+    ordering_fields = ['relevance_score', 'quality_score', 'scraped_at', 'created_at', 'company_name', 'title']
     ordering = ['-relevance_score', '-scraped_at']
 
     def get_permissions(self):
@@ -125,8 +125,8 @@ class ProjectLeadViewSet(viewsets.ModelViewSet):
         else:
             # Authenticated users
             user = self.request.user
-            if user.is_fully_verified:
-                # Fully verified users see all projects
+            if user.is_superuser or getattr(user, 'is_fully_verified', False):
+                # Superusers and fully verified users see all projects
                 queryset = queryset.all()
             else:
                 # Unverified users see limited projects
@@ -137,8 +137,10 @@ class ProjectLeadViewSet(viewsets.ModelViewSet):
     def filter_queryset(self, queryset):
         """Apply filters and ordering, then apply free_projects_limit for anonymous/unverified users."""
         queryset = super().filter_queryset(queryset)
-        # Apply limit after ordering so we don't call order_by() on a sliced queryset
-        if not self.request.user.is_authenticated or not getattr(self.request.user, 'is_fully_verified', False):
+        # Superusers and fully verified users see full list; others get free_limit
+        if not self.request.user.is_authenticated or not (
+            self.request.user.is_superuser or getattr(self.request.user, 'is_fully_verified', False)
+        ):
             free_limit = SystemSettings.get_int_setting('free_projects_limit', 10)
             queryset = queryset[:free_limit]
         return queryset
@@ -213,6 +215,16 @@ class ProjectLeadViewSet(viewsets.ModelViewSet):
             return self.get_paginated_response(serializer.data)
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], url_path='dashboard-stats')
+    def dashboard_stats(self, request):
+        """Return counts for dashboard: available (new/qualified, unmatched), matched."""
+        qs = self.get_queryset()
+        available = qs.filter(
+            Q(status__in=['new', 'qualified']) & Q(matched_user__isnull=True)
+        ).count()
+        matched = qs.filter(matched_user__isnull=False).count()
+        return Response({'available': available, 'matched': matched})
 
 
 class ProjectMatchViewSet(viewsets.ModelViewSet):
