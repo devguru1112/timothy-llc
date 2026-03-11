@@ -133,6 +133,24 @@ celery -A project_matcher beat -l info
    - Django Admin → **Project leads**: new leads after a successful run.
    - Or: `GET /api/projects/leads/` and `GET /api/scrapers/jobs/` to confirm jobs and new leads.
 
+5. **If scraping always shows Found 0 / Added 0**:
+   - **Restart the Celery worker** after any scraper code changes (so it loads the latest code).
+   - **Test from the backend** (same machine/network as the worker) to see if the scraper can reach the APIs:
+     ```bash
+     cd backend
+     source venv/bin/activate
+     python manage.py list_scraping_platforms    # list ID, name, URL
+     python manage.py test_scraper 1 --limit 5   # use the ID for RemoteOK or another platform
+     ```
+     If `test_scraper` finds projects but the Scraping page still shows 0, the worker may not have outbound internet (e.g. Docker without network) or the worker needs a restart.
+   - **USAJobs**: requires `usajobs_api_key` and `usajobs_user_email` in **Django Admin → System Settings** (or in the app Settings if available). Alternatively, pass them when starting Celery: `USAJOBS_API_KEY=your_key USAJOBS_USER_EMAIL=your@email.com celery -A project_matcher worker -l info`.
+   - **USAJobs via .env**: Add to `backend/.env` (same folder as `manage.py`):
+     ```
+     USAJOBS_API_KEY=your_api_key_here
+     USAJOBS_USER_EMAIL=your@email.com
+     ```
+     Then start the Celery worker from the **backend** directory (`cd backend` first) so `load_dotenv()` loads that file. Restart the worker after changing `.env`. If credentials are found, Celery logs will show: `USAJobs: using credentials (key length=N, email=True)`.
+
 ### Dashboard shows 0 for Available / Matched / Outreach
 
 The dashboard counts come from the database. If you see 0 for all three:

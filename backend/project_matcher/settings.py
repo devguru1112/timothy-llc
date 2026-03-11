@@ -181,5 +181,9 @@ CELERY_BEAT_SCHEDULE = {
 # OpenAI API Key for agentic features
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
 
+# USAJobs API (for scraper; also read from System Settings in DB)
+USAJOBS_API_KEY = os.getenv('USAJOBS_API_KEY', '')
+USAJOBS_USER_EMAIL = os.getenv('USAJOBS_USER_EMAIL', '')
+
 # Custom User Model
 AUTH_USER_MODEL = 'users.User'

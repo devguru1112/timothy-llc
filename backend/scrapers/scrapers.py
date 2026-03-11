@@ -2,6 +2,7 @@
 Scrapers for various compliant sources.
 Focuses on publicly available data, RSS feeds, and APIs.
 """
+import os
 import re
 import json
 import requests
@@ -147,6 +148,10 @@ class APIScraper(BaseScraper):
                 logger.warning("API returned non-JSON (status=%s): %s", response.status_code, e)
                 return []
             projects = self._parse_api_response(data, limit)
+            if not projects and text:
+                raw_len = len(data) if isinstance(data, list) else (len(data.get('jobs', [])) or len(data.get('results', [])) or len(data.get('data', [])) or 0)
+                logger.info("API returned 200 but parsed 0 jobs (platform=%s, url=%s, raw_len=%s)",
+                            getattr(self.platform, 'name', ''), url, raw_len)
             return projects
         except Exception as e:
             logger.error(f"Error scraping API {self.platform.url}: {e}")
@@ -213,21 +218,40 @@ class APIScraper(BaseScraper):
 # ---------------------------------------------------------------------------
 # USAJobs (official API) – requires API key in System Settings
 # ---------------------------------------------------------------------------
-USAJOBS_API_URL = "https://data.usajobs.gov/api/search"
+# Official endpoint uses capital S: /api/Search
+USAJOBS_API_URL = "https://data.usajobs.gov/api/Search"
 # Default keywords used when no scraping config categories are available
 USAJOBS_DEFAULT_KEYWORDS = ["Marketing", "SEO", "Social Media", "Digital Marketing", "Website Design", "LinkedIn Management"]
 
 
 class USAJobsScraper(BaseScraper):
-    """Scraper for USAJobs.gov via official API. Requires usajobs_api_key and usajobs_user_email in System Settings."""
+    """Scraper for USAJobs.gov via official API. Credentials: System Settings (DB), then Django settings / .env."""
 
     def scrape(self, limit: int = 50) -> List[Dict]:
         SystemSettings = _get_system_settings()
-        api_key = SystemSettings.get_setting('usajobs_api_key', '').strip()
-        user_email = SystemSettings.get_setting('usajobs_user_email', '').strip()
+        try:
+            from django.conf import settings as django_settings
+            _key_from_settings = getattr(django_settings, 'USAJOBS_API_KEY', None) or ''
+            _email_from_settings = getattr(django_settings, 'USAJOBS_USER_EMAIL', None) or ''
+        except Exception:
+            _key_from_settings = _email_from_settings = ''
+        api_key = (
+            (SystemSettings.get_setting('usajobs_api_key') or '') or
+            _key_from_settings or
+            os.environ.get('USAJOBS_API_KEY') or ''
+        ).strip()
+        user_email = (
+            (SystemSettings.get_setting('usajobs_user_email') or '') or
+            _email_from_settings or
+            os.environ.get('USAJOBS_USER_EMAIL') or ''
+        ).strip()
         if not api_key or not user_email:
-            logger.warning("USAJobs scraper: usajobs_api_key and usajobs_user_email must be set in System Settings")
+            logger.warning(
+                "USAJobs scraper: no credentials. Set in Django Admin → System Settings (usajobs_api_key, usajobs_user_email), "
+                "or in backend/.env: USAJOBS_API_KEY=... and USAJOBS_USER_EMAIL=..."
+            )
             return []
+        logger.info("USAJobs: using credentials (key length=%s, email=%s)", len(api_key), bool(user_email))
 
         headers = {
             "Host": "data.usajobs.gov",
@@ -250,14 +274,21 @@ class USAJobsScraper(BaseScraper):
                     "ResultsPerPage": min(per_keyword, 100),
                 }
                 response = self.session.get(USAJOBS_API_URL, headers=headers, params=params, timeout=30)
-                response.raise_for_status()
+                if response.status_code != 200:
+                    logger.warning("USAJobs API returned status %s for keyword '%s': %s",
+                                   response.status_code, keyword, (response.text or "")[:300])
+                    continue
                 data = response.json()
                 self._delay()
             except Exception as e:
                 logger.error(f"Error fetching USAJobs for keyword '{keyword}': {e}")
                 continue
 
-            for item in data.get("SearchResult", {}).get("SearchResultItems", []):
+            items = data.get("SearchResult", {}).get("SearchResultItems") or []
+            if not items and data.get("SearchResult"):
+                logger.info("USAJobs returned SearchResult but no SearchResultItems (keyword=%s); check API response",
+                            keyword)
+            for item in items:
                 if len(projects) >= limit:
                     break
                 try:

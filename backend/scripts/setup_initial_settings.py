@@ -1,8 +1,13 @@
 """
 Script to set up initial system settings.
-Run with: python manage.py shell
->>> from scripts.setup_initial_settings import setup_settings
->>> setup_settings()
+
+- On migrate: default keys are created by migration 0006_run_setup_initial_settings
+  (usajobs_api_key and usajobs_user_email start empty; set them in Settings or run this script).
+- To set or override values (e.g. USAJobs credentials), run manually:
+
+  python manage.py shell
+  >>> from scripts.setup_initial_settings import setup_settings
+  >>> setup_settings()
 """
 from projects.models import SystemSettings
 from django.contrib.auth import get_user_model
