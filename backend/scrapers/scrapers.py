@@ -299,19 +299,153 @@ class USAJobsScraper(BaseScraper):
                     seen_urls.add(url)
                     title = job.get("PositionTitle", "Untitled")
                     org = job.get("OrganizationName", "")
-                    location = job.get("PositionLocationDisplay", "")
-                    qual = job.get("QualificationSummary", "") or ""
-                    desc_parts = [qual]
-                    if location:
-                        desc_parts.append(f"Location: {location}.")
-                    description = " ".join(desc_parts).strip() or title
-                    projects.append({
+                    dept = job.get("DepartmentName", "")
+
+                    # Location details (can be list of locations)
+                    location_display = job.get("PositionLocationDisplay", "")
+                    locations = job.get("PositionLocation") or []
+                    if isinstance(locations, list):
+                        location_names = [
+                            (loc.get("LocationName") or "").strip()
+                            for loc in locations
+                            if isinstance(loc, dict) and loc.get("LocationName")
+                        ]
+                    else:
+                        location_names = []
+
+                    # Pay / budget information
+                    remuneration = job.get("PositionRemuneration") or []
+                    pay_min = pay_max = None
+                    pay_currency = "USD"
+                    if isinstance(remuneration, list) and remuneration:
+                        try:
+                            # Many postings only use first element
+                            rem0 = remuneration[0] or {}
+                            pay_min_raw = rem0.get("MinimumRange")
+                            pay_max_raw = rem0.get("MaximumRange")
+                            if pay_min_raw is not None:
+                                pay_min = float(pay_min_raw)
+                            if pay_max_raw is not None:
+                                pay_max = float(pay_max_raw)
+                            pay_currency = rem0.get("CurrencyCode") or pay_currency
+                        except Exception:
+                            pay_min = pay_max = None
+
+                    # Schedule / type / grade
+                    schedule_list = job.get("PositionSchedule") or []
+                    schedule_codes = [
+                        (s.get("Name") or "").strip()
+                        for s in schedule_list
+                        if isinstance(s, dict) and s.get("Name")
+                    ]
+                    schedule_text = ", ".join([s for s in schedule_codes if s])
+
+                    offering_list = job.get("PositionOfferingType") or []
+                    offering_names = [
+                        (o.get("Name") or "").strip()
+                        for o in offering_list
+                        if isinstance(o, dict) and o.get("Name")
+                    ]
+                    offering_text = ", ".join([o for o in offering_names if o])
+
+                    grades = job.get("JobGrade") or []
+                    grade_codes = [
+                        (g.get("Code") or "").strip()
+                        for g in grades
+                        if isinstance(g, dict) and g.get("Code")
+                    ]
+
+                    # Important descriptive text fields
+                    qual = (job.get("QualificationSummary") or "").strip()
+                    major_duties = (job.get("MajorDuties") or "").strip()
+                    education = (job.get("Education") or "").strip()
+
+                    # Who may apply
+                    who_may_apply = ""
+                    user_area = job.get("UserArea") or {}
+                    details = user_area.get("Details") or {}
+                    who_may_apply = (details.get("WhoMayApply") or {}).get("Name", "").strip()
+
+                    # Open/close dates
+                    start_date = job.get("PositionStartDate") or ""
+                    end_date = job.get("PositionEndDate") or ""
+
+                    # Build a richer, structured description string.
+                    desc_sections = []
+                    if qual:
+                        desc_sections.append(f"Qualifications:\n{qual}")
+                    if major_duties:
+                        desc_sections.append(f"Major duties:\n{major_duties}")
+                    if education:
+                        desc_sections.append(f"Education:\n{education}")
+
+                    salary_bits = []
+                    if pay_min is not None or pay_max is not None:
+                        if pay_min is not None and pay_max is not None:
+                            salary_bits.append(f"${int(pay_min):,} - ${int(pay_max):,} {pay_currency}")
+                        elif pay_min is not None:
+                            salary_bits.append(f"From ${int(pay_min):,} {pay_currency}")
+                        elif pay_max is not None:
+                            salary_bits.append(f"Up to ${int(pay_max):,} {pay_currency}")
+                    if schedule_text:
+                        salary_bits.append(schedule_text)
+                    if offering_text:
+                        salary_bits.append(offering_text)
+                    if salary_bits:
+                        desc_sections.append("Compensation & schedule:\n- " + "\n- ".join(salary_bits))
+
+                    if location_display or location_names:
+                        loc_text = location_display or ", ".join(location_names)
+                        desc_sections.append(f"Location: {loc_text}")
+
+                    org_bits = []
+                    if dept:
+                        org_bits.append(dept)
+                    if org and org not in org_bits:
+                        org_bits.append(org)
+                    if org_bits:
+                        desc_sections.append("Agency:\n" + " / ".join(org_bits))
+
+                    if grade_codes:
+                        desc_sections.append("Grade(s): " + ", ".join(grade_codes))
+
+                    if start_date or end_date:
+                        if start_date and end_date:
+                            desc_sections.append(f"Open period: {start_date} to {end_date}")
+                        elif start_date:
+                            desc_sections.append(f"Open from: {start_date}")
+                        elif end_date:
+                            desc_sections.append(f"Open until: {end_date}")
+
+                    if who_may_apply:
+                        desc_sections.append(f"Who may apply:\n{who_may_apply}")
+
+                    # Fallback to title if everything is empty
+                    description = "\n\n".join([s for s in desc_sections if s]) or title
+
+                    project_payload = {
                         "title": title,
                         "description": description[:2000],
                         "source_url": url,
                         "source_id": job.get("PositionID", "") or url.split("/")[-1] or "",
                         "company_name": org or None,
-                    })
+                    }
+
+                    # Map salary into our generic budget fields so it shows in UI
+                    if pay_min is not None:
+                        project_payload["budget_min"] = pay_min
+                    if pay_max is not None:
+                        project_payload["budget_max"] = pay_max
+                    if pay_min is not None or pay_max is not None:
+                        project_payload["budget_currency"] = pay_currency
+
+                    # Use schedule / offering as a coarse "project_type"
+                    if schedule_text or offering_text:
+                        project_payload["project_type"] = ", ".join(
+                            [t for t in [schedule_text, offering_text] if t]
+                        )[:100]
+
+                    projects.append(project_payload)
                 except Exception as e:
                     logger.debug(f"Error parsing USAJobs item: {e}")
                     continue
