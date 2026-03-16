@@ -479,15 +479,23 @@ class ITJobProScraper(BaseScraper):
     """Scraper for ITJobPro.com via public job listing page and AJAX API."""
 
     def __init__(self, platform, rate_limit_delay=6):
+        # For ITJobPro we mimic the standalone working script as closely as possible,
+        # including using a fresh Session with only the minimal headers that work.
         super().__init__(platform, rate_limit_delay)
-        self.session.headers["X-Requested-With"] = "XMLHttpRequest"
+        self.session = requests.Session()
+        self.session.headers.update({
+            "User-Agent": "Mozilla/5.0",
+            "X-Requested-With": "XMLHttpRequest",
+        })
 
     def scrape(self, limit: int = 50) -> List[Dict]:
+        # Tokens help ITJobPro's AJAX endpoint but are not strictly required.
+        # If token fetch fails, fall back to an empty dict (manual script behavior).
+        tokens: Dict[str, str] = {}
         try:
             tokens = self._get_tokens()
         except Exception as e:
-            logger.error(f"ITJobPro: failed to get tokens: {e}")
-            return []
+            logger.warning(f"ITJobPro: failed to get tokens, continuing without them: {e}")
 
         seen_urls = set()
         projects = []
@@ -504,6 +512,11 @@ class ITJobProScraper(BaseScraper):
                 for job in jobs:
                     if len(projects) >= limit:
                         break
+                    # Fetch full job detail similar to the manual script
+                    try:
+                        job = self._scrape_job_detail(job)
+                    except Exception as e:
+                        logger.debug("ITJobPro: error scraping job detail: %s", e)
                     url = job.get("url", "")
                     if not url or url in seen_urls:
                         continue
@@ -527,7 +540,6 @@ class ITJobProScraper(BaseScraper):
 
     def _get_tokens(self) -> Dict[str, str]:
         r = self.session.get(ITJOBPRO_JOBS_PAGE, timeout=30)
-        r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
         tokens = {}
         for inp in soup.select("input[type='hidden']"):
@@ -583,16 +595,51 @@ class ITJobProScraper(BaseScraper):
             })
         return jobs
 
+    def _scrape_job_detail(self, job: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Fetch full job page and enrich description / salary / type.
+        Mirrors the working logic from manual_scrapping/itjobpro.py.
+        """
+        url = job.get("url") or ""
+        if not url:
+            return job
+        if not url.startswith("http"):
+            url = ITJOBPRO_BASE_URL.rstrip("/") + "/" + url.lstrip("/")
+        r = self.session.get(url, timeout=30)
+        r.raise_for_status()
+        soup = BeautifulSoup(r.text, "html.parser")
+
+        description = ""
+        desc_container = soup.select_one(".job-description")
+        if desc_container:
+            description = desc_container.get_text("\n", strip=True)
+
+        salary = ""
+        salary_tag = soup.find(string=lambda t: "salary" in t.lower() if t else False)
+        if salary_tag:
+            salary = salary_tag.strip()
+
+        job_type = ""
+        job_type_tag = soup.find(string=lambda t: ("Full Time" in t or "Part Time" in t) if t else False)
+        if job_type_tag:
+            job_type = job_type_tag.strip()
+
+        # Enrich the existing job dict
+        if description:
+            job["description"] = description
+        if salary:
+            job["salary"] = salary
+        if job_type:
+            job["job_type"] = job_type
+
+        return job
+
     def _get_keywords(self) -> List[str]:
-        try:
-            from projects.models import ScrapingConfig
-            config = ScrapingConfig.objects.filter(is_active=True).first()
-            if config:
-                categories = config.categories.filter(is_active=True)
-                if categories.exists():
-                    return list(categories.values_list("name", flat=True))[:10]
-        except Exception as e:
-            logger.debug(f"Could not load scraping config for ITJobPro keywords: {e}")
+        """
+        Use the same fixed keyword set as the working manual scraper.
+        This avoids empty results when ScrapingConfig categories don't
+        align with what ITJobPro actually returns.
+        """
         return ITJOBPRO_DEFAULT_KEYWORDS
 
 
