@@ -10,8 +10,13 @@ class User(AbstractUser):
     """Custom User model with additional fields for community members."""
     email = models.EmailField(unique=True)
     phone = models.CharField(max_length=20, blank=True, null=True)
+    # Profile fields
     bio = models.TextField(blank=True, null=True)
+    summary = models.TextField(blank=True, null=True)
+    photo = models.ImageField(upload_to='profile_photos/', blank=True, null=True)
     skills = models.JSONField(default=list, blank=True)
+    education = models.JSONField(default=list, blank=True)
+    work_history = models.JSONField(default=list, blank=True)
     portfolio_url = models.URLField(blank=True, null=True)
     is_community_member = models.BooleanField(default=True)
     priority_level = models.IntegerField(default=1, help_text="Higher number = higher priority for project matching")

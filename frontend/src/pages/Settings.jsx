@@ -5,13 +5,27 @@ import { useState, useEffect } from 'react'
 import { ArrowPathIcon, ClockIcon } from '@heroicons/react/24/outline'
 
 export default function Settings() {
-  const { user } = useAuth()
+  const { user, fetchUser } = useAuth()
   const queryClient = useQueryClient()
   const [skills, setSkills] = useState(user?.skills || [])
   const [newSkill, setNewSkill] = useState('')
   const [scheduleTime, setScheduleTime] = useState('02:00')
   const [scheduleEnabled, setScheduleEnabled] = useState(true)
   const [scheduleLimit, setScheduleLimit] = useState(50)
+  const [bio, setBio] = useState('')
+  const [summary, setSummary] = useState('')
+  const [portfolioUrl, setPortfolioUrl] = useState('')
+  const [education, setEducation] = useState([])
+  const [workHistory, setWorkHistory] = useState([])
+  const [newEdu, setNewEdu] = useState({ school: '', degree: '', field: '', startDate: '', endDate: '', description: '' })
+  const [newWork, setNewWork] = useState({
+    company: '',
+    title: '',
+    startDate: '',
+    endDate: '',
+    location: '',
+    description: '',
+  })
 
   const { data: profile } = useQuery('profile', async () => {
     const response = await api.get('/auth/profile/')
@@ -35,6 +49,16 @@ export default function Settings() {
     }
   }, [schedule])
 
+  useEffect(() => {
+    if (!profile) return
+    setSkills(profile.skills || [])
+    setBio(profile.bio || '')
+    setSummary(profile.summary || '')
+    setPortfolioUrl(profile.portfolio_url || '')
+    setEducation(Array.isArray(profile.education) ? profile.education : [])
+    setWorkHistory(Array.isArray(profile.work_history) ? profile.work_history : [])
+  }, [profile])
+
   const scrapeNowMutation = useMutation(
     () => api.post('/scrapers/jobs/scrape_all/', { limit: scheduleLimit }),
     {
@@ -57,8 +81,26 @@ export default function Settings() {
   const updateMutation = useMutation(
     (data) => api.patch('/auth/profile/', data),
     {
-      onSuccess: () => {
+      onSuccess: async () => {
         queryClient.invalidateQueries('profile')
+        await fetchUser?.()
+      },
+    }
+  )
+
+  const updatePhotoMutation = useMutation(
+    async (file) => {
+      const form = new FormData()
+      form.append('photo', file)
+      const res = await api.post('/auth/profile/photo/', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      return res.data
+    },
+    {
+      onSuccess: async () => {
+        queryClient.invalidateQueries('profile')
+        await fetchUser?.()
       },
     }
   )
@@ -76,6 +118,58 @@ export default function Settings() {
     const updated = skills.filter((s) => s !== skill)
     setSkills(updated)
     updateMutation.mutate({ skills: updated })
+  }
+
+  const handleSaveBasics = () => {
+    updateMutation.mutate({
+      bio,
+      summary,
+      portfolio_url: portfolioUrl,
+    })
+  }
+
+  const handleAddEducation = () => {
+    const item = {
+      school: newEdu.school.trim(),
+      degree: newEdu.degree.trim(),
+      field: newEdu.field.trim(),
+      startDate: newEdu.startDate || null,
+      endDate: newEdu.endDate || null,
+      description: newEdu.description.trim(),
+    }
+    if (!item.school) return
+    const updated = [...education, item]
+    setEducation(updated)
+    updateMutation.mutate({ education: updated })
+    setNewEdu({ school: '', degree: '', field: '', startDate: '', endDate: '', description: '' })
+  }
+
+  const handleRemoveEducation = (idx) => {
+    const updated = education.filter((_, i) => i !== idx)
+    setEducation(updated)
+    updateMutation.mutate({ education: updated })
+  }
+
+  const handleAddWork = () => {
+    const item = {
+      company: newWork.company.trim(),
+      title: newWork.title.trim(),
+      startDate: newWork.startDate || null,
+      endDate: newWork.endDate || null,
+      location: newWork.location.trim(),
+      description: newWork.description.trim(),
+    }
+    if (!item.company || !item.title) return
+    const updated = [...workHistory, item]
+    setWorkHistory(updated)
+    updateMutation.mutate({ work_history: updated })
+    setNewWork({ company: '', title: '', startDate: '', endDate: '', location: '', description: '' })
+  }
+
+  const handleRemoveWork = (idx) => {
+    const updated = workHistory.filter((_, i) => i !== idx)
+    setWorkHistory(updated)
+    updateMutation.mutate({ work_history: updated })
   }
 
   if (!profile) return <div className="text-center py-12">Loading...</div>
@@ -107,25 +201,85 @@ export default function Settings() {
             </div>
             <div>
               <dt className="text-sm font-medium text-gray-500">Portfolio</dt>
-              <dd className="mt-1 text-sm text-gray-900">
-                {profile.portfolio_url ? (
-                  <a
-                    href={profile.portfolio_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-800"
-                  >
-                    {profile.portfolio_url}
-                  </a>
-                ) : (
-                  'Not set'
-                )}
+              <dd className="mt-1">
+                <input
+                  type="url"
+                  value={portfolioUrl}
+                  onChange={(e) => setPortfolioUrl(e.target.value)}
+                  placeholder="https://…"
+                  className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                />
+              </dd>
+            </div>
+            <div className="sm:col-span-2">
+              <dt className="text-sm font-medium text-gray-500">Photo</dt>
+              <dd className="mt-2 flex items-center gap-4">
+                <div className="h-16 w-16 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center">
+                  {profile.photo_url ? (
+                    <img src={profile.photo_url} alt="Profile" className="h-16 w-16 object-cover" />
+                  ) : (
+                    <span className="text-xs text-gray-500">No photo</span>
+                  )}
+                </div>
+                <div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) updatePhotoMutation.mutate(file)
+                      e.target.value = ''
+                    }}
+                    className="block text-sm text-gray-700"
+                  />
+                  {updatePhotoMutation.isError && (
+                    <div className="mt-1 text-sm text-red-600">
+                      {updatePhotoMutation.error?.response?.data?.detail || 'Failed to upload photo'}
+                    </div>
+                  )}
+                </div>
+              </dd>
+            </div>
+            <div className="sm:col-span-2">
+              <dt className="text-sm font-medium text-gray-500">Summary</dt>
+              <dd className="mt-1">
+                <textarea
+                  value={summary}
+                  onChange={(e) => setSummary(e.target.value)}
+                  rows={4}
+                  placeholder="A short professional summary…"
+                  className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                />
               </dd>
             </div>
             <div className="sm:col-span-2">
               <dt className="text-sm font-medium text-gray-500">Bio</dt>
-              <dd className="mt-1 text-sm text-gray-900">
-                {profile.bio || 'Not set'}
+              <dd className="mt-1">
+                <textarea
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  rows={4}
+                  placeholder="More detail about you…"
+                  className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                />
+                <div className="mt-3 flex items-center justify-end gap-3">
+                  {updateMutation.isError && (
+                    <span className="text-sm text-red-600">
+                      {updateMutation.error?.response?.data?.detail || 'Failed to save'}
+                    </span>
+                  )}
+                  {updateMutation.isSuccess && (
+                    <span className="text-sm text-green-600">Saved</span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleSaveBasics}
+                    disabled={updateMutation.isLoading}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {updateMutation.isLoading ? 'Saving…' : 'Save'}
+                  </button>
+                </div>
               </dd>
             </div>
             <div className="sm:col-span-2">
@@ -166,6 +320,188 @@ export default function Settings() {
               </dd>
             </div>
           </dl>
+        </div>
+      </div>
+
+      <div className="mt-8 bg-white shadow overflow-hidden sm:rounded-lg">
+        <div className="px-4 py-5 sm:px-6">
+          <h3 className="text-lg leading-6 font-medium text-gray-900">Education</h3>
+          <p className="mt-1 text-sm text-gray-500">Add schools, degrees, and relevant notes.</p>
+        </div>
+        <div className="border-t border-gray-200 px-4 py-5 sm:px-6 space-y-4">
+          {education.length === 0 ? (
+            <div className="text-sm text-gray-500">No education added yet.</div>
+          ) : (
+            <ul className="space-y-3">
+              {education.map((e, idx) => (
+                <li key={idx} className="flex items-start justify-between gap-4 rounded-md border border-gray-200 p-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-gray-900">
+                      {e.school || 'School'}{e.degree ? ` • ${e.degree}` : ''}{e.field ? `, ${e.field}` : ''}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {(e.startDate || '—')} – {(e.endDate || '—')}
+                    </div>
+                    {e.description ? <div className="mt-2 text-sm text-gray-700 whitespace-pre-wrap">{e.description}</div> : null}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveEducation(idx)}
+                    className="text-sm text-red-600 hover:text-red-800"
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="pt-4 border-t border-gray-100">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <input
+                type="text"
+                value={newEdu.school}
+                onChange={(e) => setNewEdu((p) => ({ ...p, school: e.target.value }))}
+                placeholder="School"
+                className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+              />
+              <input
+                type="text"
+                value={newEdu.degree}
+                onChange={(e) => setNewEdu((p) => ({ ...p, degree: e.target.value }))}
+                placeholder="Degree"
+                className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+              />
+              <input
+                type="text"
+                value={newEdu.field}
+                onChange={(e) => setNewEdu((p) => ({ ...p, field: e.target.value }))}
+                placeholder="Field (optional)"
+                className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  type="month"
+                  value={newEdu.startDate}
+                  onChange={(e) => setNewEdu((p) => ({ ...p, startDate: e.target.value }))}
+                  className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                />
+                <input
+                  type="month"
+                  value={newEdu.endDate}
+                  onChange={(e) => setNewEdu((p) => ({ ...p, endDate: e.target.value }))}
+                  className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                />
+              </div>
+              <textarea
+                value={newEdu.description}
+                onChange={(e) => setNewEdu((p) => ({ ...p, description: e.target.value }))}
+                rows={3}
+                placeholder="Description (optional)"
+                className="sm:col-span-2 shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+              />
+            </div>
+            <div className="mt-3 flex justify-end">
+              <button
+                type="button"
+                onClick={handleAddEducation}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                Add education
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-8 bg-white shadow overflow-hidden sm:rounded-lg">
+        <div className="px-4 py-5 sm:px-6">
+          <h3 className="text-lg leading-6 font-medium text-gray-900">Work history</h3>
+          <p className="mt-1 text-sm text-gray-500">Add roles you want to highlight.</p>
+        </div>
+        <div className="border-t border-gray-200 px-4 py-5 sm:px-6 space-y-4">
+          {workHistory.length === 0 ? (
+            <div className="text-sm text-gray-500">No work history added yet.</div>
+          ) : (
+            <ul className="space-y-3">
+              {workHistory.map((w, idx) => (
+                <li key={idx} className="flex items-start justify-between gap-4 rounded-md border border-gray-200 p-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-gray-900">
+                      {w.title || 'Title'}{w.company ? ` • ${w.company}` : ''}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {(w.startDate || '—')} – {(w.endDate || '—')}{w.location ? ` • ${w.location}` : ''}
+                    </div>
+                    {w.description ? <div className="mt-2 text-sm text-gray-700 whitespace-pre-wrap">{w.description}</div> : null}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveWork(idx)}
+                    className="text-sm text-red-600 hover:text-red-800"
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="pt-4 border-t border-gray-100">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <input
+                type="text"
+                value={newWork.title}
+                onChange={(e) => setNewWork((p) => ({ ...p, title: e.target.value }))}
+                placeholder="Title"
+                className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+              />
+              <input
+                type="text"
+                value={newWork.company}
+                onChange={(e) => setNewWork((p) => ({ ...p, company: e.target.value }))}
+                placeholder="Company"
+                className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  type="month"
+                  value={newWork.startDate}
+                  onChange={(e) => setNewWork((p) => ({ ...p, startDate: e.target.value }))}
+                  className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                />
+                <input
+                  type="month"
+                  value={newWork.endDate}
+                  onChange={(e) => setNewWork((p) => ({ ...p, endDate: e.target.value }))}
+                  className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                />
+              </div>
+              <input
+                type="text"
+                value={newWork.location}
+                onChange={(e) => setNewWork((p) => ({ ...p, location: e.target.value }))}
+                placeholder="Location (optional)"
+                className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+              />
+              <textarea
+                value={newWork.description}
+                onChange={(e) => setNewWork((p) => ({ ...p, description: e.target.value }))}
+                rows={3}
+                placeholder="Description (optional)"
+                className="sm:col-span-2 shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+              />
+            </div>
+            <div className="mt-3 flex justify-end">
+              <button
+                type="button"
+                onClick={handleAddWork}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                Add work history
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
