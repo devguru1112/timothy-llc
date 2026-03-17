@@ -1,8 +1,13 @@
 """
 Script to set up initial system settings.
-Run with: python manage.py shell
->>> from scripts.setup_initial_settings import setup_settings
->>> setup_settings()
+
+- On migrate: default keys are created by migration 0006_run_setup_initial_settings
+  (usajobs_api_key and usajobs_user_email start empty; set them in Settings or run this script).
+- To set or override values (e.g. USAJobs credentials), run manually:
+
+  python manage.py shell
+  >>> from scripts.setup_initial_settings import setup_settings
+  >>> setup_settings()
 """
 from projects.models import SystemSettings
 from django.contrib.auth import get_user_model
@@ -17,6 +22,21 @@ def setup_settings():
             'key': 'free_projects_limit',
             'value': '10',
             'description': 'Number of free projects shown to non-authenticated users',
+        },
+        {
+            'key': 'free_applications_limit',
+            'value': '3',
+            'description': 'Number of free applications allowed before requiring registration',
+        },
+        {
+            'key': 'usajobs_api_key',
+            'value': 'irD2ZpgHzFc4imtXSvQeL5Ngf6Wu3Rl1HNrnGVBpyFU=',
+            'description': 'USAJobs.gov API Authorization-Key (required for USAJobs scraper). Get one at https://www.usajobs.gov/Help/working-in-government/unique-hiring-paths/students/federal-internships/',
+        },
+        {
+            'key': 'usajobs_user_email',
+            'value': 'daniel.dimitar.lee@gmail.com',
+            'description': 'Email used as User-Agent for USAJobs.gov API (required for USAJobs scraper).',
         },
     ]
     

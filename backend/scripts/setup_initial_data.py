@@ -3,11 +3,50 @@ Script to set up initial data for the project matcher.
 Run with: python manage.py shell < scripts/setup_initial_data.py
 Or: python manage.py runscript setup_initial_data
 """
-from projects.models import SourcePlatform
+from projects.models import SourcePlatform, JobCategory, ScrapingConfig
 from outreach.models import OutreachTemplate
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
+
+
+def setup_job_categories():
+    """Create default job categories (SEO, Marketing, Social Media, etc.)."""
+    categories = [
+        {
+            'name': 'SEO',
+            'keywords': ['SEO', 'search engine optimization', 'keyword research', 'organic traffic', 'backlinks', 'on-page SEO', 'technical SEO'],
+        },
+        {
+            'name': 'Marketing',
+            'keywords': ['marketing', 'digital marketing', 'campaign', 'brand', 'growth', 'conversion', 'lead generation', 'content marketing'],
+        },
+        {
+            'name': 'Social Media',
+            'keywords': ['social media', 'Facebook', 'Instagram', 'Twitter', 'TikTok', 'LinkedIn', 'social strategy', 'community management', 'engagement'],
+        },
+        {
+            'name': 'Website Design',
+            'keywords': ['website design', 'web design', 'UI', 'UX', 'wireframe', 'landing page', 'WordPress', 'responsive design', 'front-end'],
+        },
+        {
+            'name': 'LinkedIn Management',
+            'keywords': ['LinkedIn', 'LinkedIn management', 'LinkedIn strategy', 'LinkedIn marketing', 'LinkedIn profile', 'B2B LinkedIn', 'LinkedIn outreach'],
+        },
+    ]
+    created_count = 0
+    for cat_data in categories:
+        _, created = JobCategory.objects.get_or_create(
+            name=cat_data['name'],
+            defaults={'keywords': cat_data['keywords'], 'is_active': True}
+        )
+        if created:
+            created_count += 1
+            print(f"Created category: {cat_data['name']}")
+        else:
+            print(f"Category already exists: {cat_data['name']}")
+    print(f"\nCreated {created_count} new job categories")
+    return created_count
 
 
 def setup_source_platforms():
@@ -19,6 +58,22 @@ def setup_source_platforms():
             'user_count': 500000,
             'scraping_method': 'public_api',
             'rate_limit_per_minute': 10,
+            'is_active': True,
+        },
+        {
+            'name': 'USAJobs',
+            'url': 'https://data.usajobs.gov/api/search',
+            'user_count': 2000000,
+            'scraping_method': 'public_api',
+            'rate_limit_per_minute': 10,
+            'is_active': True,
+        },
+        {
+            'name': 'ITJobPro',
+            'url': 'https://itjobpro.com/jobs/',
+            'user_count': 100000,
+            'scraping_method': 'public_scrape',
+            'rate_limit_per_minute': 5,
             'is_active': True,
         },
         {
@@ -120,6 +175,8 @@ Best regards,
 def run_setup():
     """Run all setup functions."""
     print("Setting up initial data...\n")
+    setup_job_categories()
+    print("\n" + "="*50 + "\n")
     setup_source_platforms()
     print("\n" + "="*50 + "\n")
     setup_outreach_templates()

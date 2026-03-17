@@ -2,12 +2,32 @@ import { useQuery } from 'react-query'
 import { Link } from 'react-router-dom'
 import api from '../services/api'
 import { format } from 'date-fns'
+import { useState } from 'react'
+
+const SORT_OPTIONS = [
+  { value: '-created_at', label: 'Newest first' },
+  { value: 'created_at', label: 'Oldest first' },
+  { value: 'company_name', label: 'Company (A–Z)' },
+  { value: '-company_name', label: 'Company (Z–A)' },
+  { value: '-scraped_at', label: 'Data added (newest)' },
+  { value: 'scraped_at', label: 'Data added (oldest)' },
+  { value: '-relevance_score', label: 'Relevance (high first)' },
+  { value: 'relevance_score', label: 'Relevance (low first)' },
+]
 
 export default function Projects() {
-  const { data, isLoading, error } = useQuery('projects', async () => {
-    const response = await api.get('/api/projects/leads/')
-    return response.data
-  })
+  const [searchKeyword, setSearchKeyword] = useState('')
+  const [sortBy, setSortBy] = useState('-created_at')
+
+  const { data, isLoading, error } = useQuery(
+    ['projects', searchKeyword, sortBy],
+    async () => {
+      const params = { ordering: sortBy }
+      if (searchKeyword.trim()) params.search = searchKeyword.trim()
+      const response = await api.get('/projects/leads/', { params })
+      return response.data
+    }
+  )
 
   if (isLoading) return <div className="text-center py-12">Loading projects...</div>
   if (error) return <div className="text-center py-12 text-red-600">Error loading projects</div>
@@ -35,19 +55,50 @@ export default function Projects() {
           </p>
         </div>
         <Link
-          to="/projects/available"
+          to="/dashboard/projects/available"
           className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
         >
           View Available
         </Link>
       </div>
 
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <input
+          type="search"
+          placeholder="Search by keyword (title, company, description...)"
+          value={searchKeyword}
+          onChange={(e) => setSearchKeyword(e.target.value)}
+          className="flex-1 min-w-[200px] rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+        />
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          Sort by
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          >
+            {SORT_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
       <div className="bg-white shadow overflow-hidden sm:rounded-md">
         <ul className="divide-y divide-gray-200">
-          {projects.map((project) => (
+          {projects.length === 0 ? (
+            <li className="px-4 py-12 text-center text-gray-500">
+              {searchKeyword.trim()
+                ? 'No projects match your search.'
+                : 'No projects yet. Run scraping to add project leads.'}
+            </li>
+          ) : (
+            projects.map((project) => (
             <li key={project.id}>
               <Link
-                to={`/projects/${project.id}`}
+                to={`/dashboard/projects/${project.id}`}
                 className="block hover:bg-gray-50 px-4 py-4 sm:px-6"
               >
                 <div className="flex items-center justify-between">
@@ -75,7 +126,7 @@ export default function Projects() {
                         </span>
                       )}
                       <span className="ml-4">
-                        {format(new Date(project.scraped_at), 'MMM d, yyyy')}
+                        {format(new Date(project.scraped_at || project.created_at), 'MMM d, yyyy')}
                       </span>
                     </div>
                   </div>
@@ -87,7 +138,7 @@ export default function Projects() {
                 </div>
               </Link>
             </li>
-          ))}
+          )))}
         </ul>
       </div>
     </div>

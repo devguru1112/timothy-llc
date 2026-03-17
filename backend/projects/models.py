@@ -5,6 +5,28 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 User = get_user_model()
 
 
+class JobCategory(models.Model):
+    """Categories for job classification (e.g., SEO, Marketing, Social Media)."""
+    name = models.CharField(max_length=100, unique=True)
+    keywords = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="List of keywords to match jobs to this category (e.g., ['SEO', 'search engine optimization', 'keyword research'])"
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'job_categories'
+        verbose_name = 'Job Category'
+        verbose_name_plural = 'Job Categories'
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
 class SourcePlatform(models.Model):
     """Platforms where projects are sourced from."""
     name = models.CharField(max_length=200, unique=True)
@@ -27,6 +49,41 @@ class SourcePlatform(models.Model):
 
     class Meta:
         db_table = 'source_platforms'
+
+    def __str__(self):
+        return self.name
+
+
+class ScrapingConfig(models.Model):
+    """Configuration for scraping jobs - stores selected categories."""
+    name = models.CharField(
+        max_length=200,
+        default="Default Scraping Config",
+        help_text="Name for this scraping configuration"
+    )
+    categories = models.ManyToManyField(
+        JobCategory,
+        related_name='scraping_configs',
+        help_text="Categories to scrape jobs for"
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Whether this configuration is active for scraping"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='updated_scraping_configs'
+    )
+
+    class Meta:
+        db_table = 'scraping_configs'
+        verbose_name = 'Scraping Configuration'
+        verbose_name_plural = 'Scraping Configurations'
 
     def __str__(self):
         return self.name
@@ -129,6 +186,14 @@ class ProjectLead(models.Model):
     is_public = models.BooleanField(
         default=True,
         help_text="Whether this project is visible to non-authenticated users"
+    )
+    
+    # Categories
+    categories = models.ManyToManyField(
+        JobCategory,
+        related_name='projects',
+        blank=True,
+        help_text="Categories this job belongs to"
     )
     
     # Metadata

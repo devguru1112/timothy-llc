@@ -4,7 +4,7 @@ import { format } from 'date-fns'
 
 export default function Outreach() {
   const { data, isLoading } = useQuery('outreach', async () => {
-    const response = await api.get('/api/outreach/messages/')
+    const response = await api.get('/outreach/messages/')
     return response.data
   })
 

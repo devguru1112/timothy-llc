@@ -1,6 +1,46 @@
 from rest_framework import serializers
-from .models import ProjectLead, SourcePlatform, ProjectMatch
+from .models import (
+    ProjectLead, SourcePlatform, ProjectMatch, ProjectApplication, 
+    SystemSettings, JobCategory, ScrapingConfig
+)
 from users.serializers import UserSerializer
+
+
+class JobCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = JobCategory
+        fields = '__all__'
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class ScrapingConfigSerializer(serializers.ModelSerializer):
+    categories = JobCategorySerializer(many=True, read_only=True)
+    category_ids = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=JobCategory.objects.all(),
+        source='categories',
+        write_only=True,
+        required=False
+    )
+    
+    class Meta:
+        model = ScrapingConfig
+        fields = '__all__'
+        read_only_fields = ['created_at', 'updated_at', 'updated_by']
+    
+    def create(self, validated_data):
+        category_ids = validated_data.pop('categories', [])
+        instance = super().create(validated_data)
+        if category_ids:
+            instance.categories.set(category_ids)
+        return instance
+    
+    def update(self, instance, validated_data):
+        category_ids = validated_data.pop('categories', None)
+        instance = super().update(instance, validated_data)
+        if category_ids is not None:
+            instance.categories.set(category_ids)
+        return instance
 
 
 class SourcePlatformSerializer(serializers.ModelSerializer):
@@ -10,14 +50,60 @@ class SourcePlatformSerializer(serializers.ModelSerializer):
         read_only_fields = ['created_at', 'updated_at']
 
 
+class SystemSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SystemSettings
+        fields = '__all__'
+        read_only_fields = ['updated_at']
+
+
 class ProjectLeadSerializer(serializers.ModelSerializer):
     source_platform_name = serializers.CharField(source='source_platform.name', read_only=True)
     matched_user_username = serializers.CharField(source='matched_user.username', read_only=True, allow_null=True)
+    categories = JobCategorySerializer(many=True, read_only=True)
+    category_ids = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=JobCategory.objects.filter(is_active=True),
+        source='categories',
+        write_only=True,
+        required=False
+    )
     
     class Meta:
         model = ProjectLead
         fields = '__all__'
         read_only_fields = ['scraped_at', 'created_at', 'updated_at']
+
+
+class ProjectLeadListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for list views."""
+    source_platform_name = serializers.CharField(source='source_platform.name', read_only=True)
+    matched_user_username = serializers.CharField(source='matched_user.username', read_only=True, allow_null=True)
+    categories = JobCategorySerializer(many=True, read_only=True)
+    
+    class Meta:
+        model = ProjectLead
+        fields = [
+            'id', 'title', 'description', 'source_platform_name', 'source_url',
+            'contact_email', 'contact_name', 'company_name', 'budget_min', 
+            'budget_max', 'budget_currency', 'skills_required', 'relevance_score',
+            'quality_score', 'status', 'matched_user_username', 'scraped_at',
+            'created_at', 'is_public', 'categories'
+        ]
+
+
+class ProjectLeadPublicSerializer(serializers.ModelSerializer):
+    """Serializer for public (non-authenticated) access - limited fields."""
+    source_platform_name = serializers.CharField(source='source_platform.name', read_only=True)
+    
+    class Meta:
+        model = ProjectLead
+        fields = [
+            'id', 'title', 'description', 'source_platform_name', 'company_name',
+            'budget_min', 'budget_max', 'budget_currency', 'skills_required',
+            'project_type', 'created_at', 'is_public'
+        ]
+        read_only_fields = ['id', 'created_at']
 
 
 class ProjectMatchSerializer(serializers.ModelSerializer):
@@ -30,17 +116,29 @@ class ProjectMatchSerializer(serializers.ModelSerializer):
         read_only_fields = ['created_at', 'updated_at']
 
 
-class ProjectLeadListSerializer(serializers.ModelSerializer):
-    """Lightweight serializer for list views."""
-    source_platform_name = serializers.CharField(source='source_platform.name', read_only=True)
-    matched_user_username = serializers.CharField(source='matched_user.username', read_only=True, allow_null=True)
+class ProjectApplicationSerializer(serializers.ModelSerializer):
+    project_title = serializers.CharField(source='project.title', read_only=True)
     
     class Meta:
-        model = ProjectLead
+        model = ProjectApplication
+        fields = '__all__'
+        read_only_fields = ['created_at', 'updated_at', 'status']
+
+
+class ProjectApplicationCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating applications (no authentication required)."""
+    
+    class Meta:
+        model = ProjectApplication
         fields = [
-            'id', 'title', 'description', 'source_platform_name', 'source_url',
-            'contact_email', 'contact_name', 'company_name', 'budget_min', 
-            'budget_max', 'budget_currency', 'skills_required', 'relevance_score',
-            'quality_score', 'status', 'matched_user_username', 'scraped_at',
-            'created_at'
+            'project', 'applicant_name', 'applicant_email', 'applicant_phone',
+            'applicant_portfolio', 'applicant_skills', 'cover_letter'
         ]
+    
+    def validate_project(self, value):
+        """Ensure project is public and accepting applications."""
+        if not value.is_public:
+            raise serializers.ValidationError("This project is not available for public applications.")
+        if value.status in ['closed', 'matched', 'rejected']:
+            raise serializers.ValidationError("This project is no longer accepting applications.")
+        return value

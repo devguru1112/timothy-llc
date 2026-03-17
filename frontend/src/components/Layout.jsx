@@ -6,6 +6,7 @@ import {
   EnvelopeIcon,
   Cog6ToothIcon,
   ArrowRightOnRectangleIcon,
+  ArrowPathIcon,
 } from '@heroicons/react/24/outline'
 
 export default function Layout() {
@@ -13,10 +14,11 @@ export default function Layout() {
   const location = useLocation()
 
   const navigation = [
-    { name: 'Dashboard', href: '/', icon: HomeIcon },
-    { name: 'Projects', href: '/projects', icon: BriefcaseIcon },
-    { name: 'Outreach', href: '/outreach', icon: EnvelopeIcon },
-    { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
+    { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
+    { name: 'Projects', href: '/dashboard/projects', icon: BriefcaseIcon },
+    { name: 'Outreach', href: '/dashboard/outreach', icon: EnvelopeIcon },
+    ...(user?.is_superuser ? [{ name: 'Scraping', href: '/dashboard/scraping', icon: ArrowPathIcon }] : []),
+    { name: 'Settings', href: '/dashboard/settings', icon: Cog6ToothIcon },
   ]
 
   const isActive = (path) => location.pathname === path

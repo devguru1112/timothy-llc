@@ -105,6 +105,77 @@ celery -A project_matcher worker -l info
 celery -A project_matcher beat -l info
 ```
 
+### How to check scraping is working
+
+1. **Create scraping platforms** (once):
+   ```bash
+   cd backend
+   python manage.py ensure_scraping_platforms
+   ```
+
+2. **Test a single platform** (no Celery needed; runs in process):
+   ```bash
+   cd backend
+   python manage.py test_scraper 1 --limit 5
+   ```
+   Use the platform ID from Django Admin → Source Platforms (e.g. 1 = RemoteOK). You should see a list of projects printed.
+
+3. **Run full scraping via the app** (Celery must be running):
+   - Start Redis and a Celery worker (see Celery Setup above).
+   - Log in as a superuser, go to **Settings** or **Scraping**.
+   - Click **Run scraping now**.
+   - On the **Scraping** page you should see jobs per platform with status **running**, then **completed** (or **failed** and an error message).
+
+4. **Verify data**:
+   - **Scraping** page: “Found” and “Added” counts, “Error” column if something failed.
+   - “Added” can be lower than “Found”: duplicates (same URL) are skipped; if you use **Scraping categories** in Django Admin, only projects matching those categories are added.
+   - To get more results per run: on the Scraping page set **Limit per platform** (e.g. 200–500) before clicking **Run scraping now**, or set **Limit per platform** in Settings (used by both the button and the daily schedule).
+   - Django Admin → **Project leads**: new leads after a successful run.
+   - Or: `GET /api/projects/leads/` and `GET /api/scrapers/jobs/` to confirm jobs and new leads.
+
+5. **If scraping always shows Found 0 / Added 0**:
+   - **Restart the Celery worker** after any scraper code changes (so it loads the latest code).
+   - **Test from the backend** (same machine/network as the worker) to see if the scraper can reach the APIs:
+     ```bash
+     cd backend
+     source venv/bin/activate
+     python manage.py list_scraping_platforms    # list ID, name, URL
+     python manage.py test_scraper 1 --limit 5   # use the ID for RemoteOK or another platform
+     ```
+     If `test_scraper` finds projects but the Scraping page still shows 0, the worker may not have outbound internet (e.g. Docker without network) or the worker needs a restart.
+   - **USAJobs**: requires `usajobs_api_key` and `usajobs_user_email` in **Django Admin → System Settings** (or in the app Settings if available). Alternatively, pass them when starting Celery: `USAJOBS_API_KEY=your_key USAJOBS_USER_EMAIL=your@email.com celery -A project_matcher worker -l info`.
+   - **USAJobs via .env**: Add to `backend/.env` (same folder as `manage.py`):
+     ```
+     USAJOBS_API_KEY=your_api_key_here
+     USAJOBS_USER_EMAIL=your@email.com
+     ```
+     Then start the Celery worker from the **backend** directory (`cd backend` first) so `load_dotenv()` loads that file. Restart the worker after changing `.env`. If credentials are found, Celery logs will show: `USAJobs: using credentials (key length=N, email=True)`.
+
+### Dashboard shows 0 for Available / Matched / Outreach
+
+The dashboard counts come from the database. If you see 0 for all three:
+
+1. **Verify data in the DB** (with venv activated):
+   ```bash
+   cd backend
+   source venv/bin/activate   # or venv\Scripts\activate on Windows
+   python manage.py verify_dashboard_data
+   ```
+   This prints total project leads, "available" and "matched" counts, and outreach sent. If **ProjectLead total** is 0, the dashboard will show 0 until you add data.
+
+2. **Add sample data** (no scraping needed):
+   ```bash
+   python manage.py create_sample_data
+   ```
+   Then refresh the dashboard; you should see sample projects.
+
+3. **Or run scraping** so real scraped projects are saved:
+   - Ensure platforms exist: `python manage.py ensure_scraping_platforms`
+   - Start Celery worker + Redis, then trigger a scrape from **Dashboard → Scraping** (or **Settings**).  
+   If **Scraping categories** are configured and no scraped project matches those categories, "Added" can be 0; adjust categories or disable the filter to get leads.
+
+4. **Log in as a superuser** so the dashboard can see all leads (unverified users may see a limited subset).
+
 ## Project Structure
 
 ```

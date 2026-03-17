@@ -6,7 +6,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q
 from .models import (
     ProjectLead, SourcePlatform, ProjectMatch, 
-    ProjectApplication, SystemSettings
+    ProjectApplication, SystemSettings, JobCategory, ScrapingConfig
 )
 from .serializers import (
     ProjectLeadSerializer, 
@@ -17,6 +17,8 @@ from .serializers import (
     ProjectApplicationSerializer,
     ProjectApplicationCreateSerializer,
     SystemSettingsSerializer,
+    JobCategorySerializer,
+    ScrapingConfigSerializer,
 )
 from .services import ProjectMatchingService
 
@@ -42,12 +44,53 @@ class SystemSettingsViewSet(viewsets.ModelViewSet):
         return SystemSettings.objects.none()
 
 
+class JobCategoryViewSet(viewsets.ModelViewSet):
+    """ViewSet for job categories."""
+    queryset = JobCategory.objects.all()
+    serializer_class = JobCategorySerializer
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ['is_active']
+    search_fields = ['name']
+    permission_classes = [IsAuthenticated]  # Require authentication
+    
+    def get_queryset(self):
+        # Admins can see all, regular users see only active
+        if self.request.user.is_superuser:
+            return JobCategory.objects.all()
+        return JobCategory.objects.filter(is_active=True)
+
+
+class ScrapingConfigViewSet(viewsets.ModelViewSet):
+    """Admin-only viewset for scraping configurations."""
+    queryset = ScrapingConfig.objects.all()
+    serializer_class = ScrapingConfigSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ['is_active']
+    search_fields = ['name']
+    
+    def get_queryset(self):
+        # Only superusers can manage scraping configs
+        if self.request.user.is_superuser:
+            return ScrapingConfig.objects.all()
+        # Regular users can view active configs
+        return ScrapingConfig.objects.filter(is_active=True)
+    
+    def perform_create(self, serializer):
+        """Set updated_by when creating."""
+        serializer.save(updated_by=self.request.user)
+    
+    def perform_update(self, serializer):
+        """Set updated_by when updating."""
+        serializer.save(updated_by=self.request.user)
+
+
 class ProjectLeadViewSet(viewsets.ModelViewSet):
-    queryset = ProjectLead.objects.select_related('source_platform', 'matched_user').all()
+    queryset = ProjectLead.objects.select_related('source_platform', 'matched_user').prefetch_related('categories').all()
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['status', 'source_platform', 'matched_user', 'is_public']
+    filterset_fields = ['status', 'source_platform', 'matched_user', 'is_public', 'categories']
     search_fields = ['title', 'description', 'company_name', 'contact_name']
-    ordering_fields = ['relevance_score', 'quality_score', 'scraped_at', 'created_at']
+    ordering_fields = ['relevance_score', 'quality_score', 'scraped_at', 'created_at', 'company_name', 'title']
     ordering = ['-relevance_score', '-scraped_at']
 
     def get_permissions(self):
@@ -70,20 +113,36 @@ class ProjectLeadViewSet(viewsets.ModelViewSet):
         return ProjectLeadSerializer
 
     def get_queryset(self):
-        """Filter queryset based on authentication status."""
+        """Filter queryset based on authentication and verification status.
+        Do not slice here—slicing is applied in filter_queryset() after ordering,
+        so that OrderingFilter can run on an unsliced queryset.
+        """
         queryset = super().get_queryset()
         
         if not self.request.user.is_authenticated:
             # For anonymous users, only show public projects
             queryset = queryset.filter(is_public=True, status__in=['new', 'qualified'])
-            
-            # Limit to free projects count
+        else:
+            # Authenticated users
+            user = self.request.user
+            if user.is_superuser or getattr(user, 'is_fully_verified', False):
+                # Superusers and fully verified users see all projects
+                queryset = queryset.all()
+            else:
+                # Unverified users see limited projects
+                queryset = queryset.filter(is_public=True, status__in=['new', 'qualified'])
+        
+        return queryset
+
+    def filter_queryset(self, queryset):
+        """Apply filters and ordering, then apply free_projects_limit for anonymous/unverified users."""
+        queryset = super().filter_queryset(queryset)
+        # Superusers and fully verified users see full list; others get free_limit
+        if not self.request.user.is_authenticated or not (
+            self.request.user.is_superuser or getattr(self.request.user, 'is_fully_verified', False)
+        ):
             free_limit = SystemSettings.get_int_setting('free_projects_limit', 10)
             queryset = queryset[:free_limit]
-        else:
-            # Authenticated users see all projects
-            queryset = queryset.all()
-        
         return queryset
 
     @action(detail=False, methods=['get'], permission_classes=[AllowAny])
@@ -91,15 +150,25 @@ class ProjectLeadViewSet(viewsets.ModelViewSet):
         """Public endpoint for browsing free projects (no authentication required)."""
         free_limit = SystemSettings.get_int_setting('free_projects_limit', 10)
         
-        queryset = ProjectLead.objects.filter(
-            is_public=True,
-            status__in=['new', 'qualified']
-        ).select_related('source_platform')[:free_limit]
+        # Check if user is authenticated and verified
+        if request.user.is_authenticated and hasattr(request.user, 'is_fully_verified') and request.user.is_fully_verified:
+            # Fully verified users see all projects
+            queryset = ProjectLead.objects.filter(
+                status__in=['new', 'qualified']
+            ).select_related('source_platform')
+            limit = None
+        else:
+            # Non-authenticated or unverified users see limited projects
+            queryset = ProjectLead.objects.filter(
+                is_public=True,
+                status__in=['new', 'qualified']
+            ).select_related('source_platform')[:free_limit]
+            limit = free_limit
         
         serializer = ProjectLeadPublicSerializer(queryset, many=True)
         return Response({
             'count': len(queryset),
-            'limit': free_limit,
+            'limit': limit,
             'results': serializer.data
         })
 
@@ -147,6 +216,16 @@ class ProjectLeadViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
+    @action(detail=False, methods=['get'], url_path='dashboard-stats')
+    def dashboard_stats(self, request):
+        """Return counts for dashboard: available (new/qualified, unmatched), matched."""
+        qs = self.get_queryset()
+        available = qs.filter(
+            Q(status__in=['new', 'qualified']) & Q(matched_user__isnull=True)
+        ).count()
+        matched = qs.filter(matched_user__isnull=False).count()
+        return Response({'available': available, 'matched': matched})
+
 
 class ProjectMatchViewSet(viewsets.ModelViewSet):
     queryset = ProjectMatch.objects.select_related('project', 'user').all()
@@ -189,6 +268,19 @@ class ProjectApplicationViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         """Create a new application (no authentication required)."""
+        # Check application limit for non-authenticated users
+        if not request.user.is_authenticated:
+            if hasattr(request, 'applications_exceeded') and request.applications_exceeded:
+                return Response(
+                    {
+                        'error': 'Application limit reached',
+                        'message': f'You have reached the limit of {request.applications_limit} free applications. Please register to continue.',
+                        'applications_remaining': 0,
+                        'requires_registration': True
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
@@ -214,8 +306,14 @@ class ProjectApplicationViewSet(viewsets.ModelViewSet):
             application.user = request.user
             application.save()
         
+        # Include remaining applications in response
+        response_data = ProjectApplicationSerializer(application).data
+        if not request.user.is_authenticated:
+            response_data['applications_remaining'] = getattr(request, 'applications_remaining', 0)
+            response_data['applications_limit'] = getattr(request, 'applications_limit', 3)
+        
         return Response(
-            ProjectApplicationSerializer(application).data,
+            response_data,
             status=status.HTTP_201_CREATED
         )
 

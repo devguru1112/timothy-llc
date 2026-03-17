@@ -54,6 +54,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'projects.middleware.ApplicationLimitMiddleware',
 ]
 
 ROOT_URLCONF = 'project_matcher.urls'
@@ -61,7 +62,7 @@ ROOT_URLCONF = 'project_matcher.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'project_matcher' / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -85,7 +86,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': os.getenv('DB_NAME', 'project_matcher'),
         'USER': os.getenv('DB_USER', 'postgres'),
-        'PASSWORD': os.getenv('DB_PASSWORD', 'postgres'),
+        'PASSWORD': os.getenv('DB_PASSWORD', 'rabbit'),
         'HOST': os.getenv('DB_HOST', 'localhost'),
         'PORT': os.getenv('DB_PORT', '5432'),
     }
@@ -129,6 +130,10 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
+# Media (user-uploaded files)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
@@ -170,20 +175,19 @@ CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
 CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_BEAT_SCHEDULE = {
-    'scrape-all-platforms-daily': {
-        'task': 'scrapers.tasks.scrape_all_active_platforms',
-        'schedule': crontab(hour=2, minute=0),  # Run daily at 2 AM
-        'kwargs': {'limit': 50}
-    },
-    'scrape-all-platforms-hourly': {
-        'task': 'scrapers.tasks.scrape_all_active_platforms',
-        'schedule': crontab(minute=0),  # Run every hour
-        'kwargs': {'limit': 20}
+    # Runs every minute; triggers scrape only when current time matches admin-configured scraping_schedule_time
+    'run-scheduled-scrape': {
+        'task': 'scrapers.tasks.run_scheduled_scrape',
+        'schedule': crontab(),  # every minute
     },
 }
 
 # OpenAI API Key for agentic features
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
+
+# USAJobs API (for scraper; also read from System Settings in DB)
+USAJOBS_API_KEY = os.getenv('USAJOBS_API_KEY', '')
+USAJOBS_USER_EMAIL = os.getenv('USAJOBS_USER_EMAIL', '')
 
 # Custom User Model
 AUTH_USER_MODEL = 'users.User'
