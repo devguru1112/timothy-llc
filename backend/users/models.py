@@ -20,6 +20,9 @@ class User(AbstractUser):
     portfolio_url = models.URLField(blank=True, null=True)
     is_community_member = models.BooleanField(default=True)
     priority_level = models.IntegerField(default=1, help_text="Higher number = higher priority for project matching")
+
+    # Billing / wallet
+    balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     
     # Verification fields
     phone_verified = models.BooleanField(default=False)

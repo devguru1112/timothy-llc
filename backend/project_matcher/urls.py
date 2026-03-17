@@ -15,6 +15,7 @@ urlpatterns = [
     path('api/projects/', include('projects.urls')),
     path('api/scrapers/', include('scrapers.urls')),
     path('api/outreach/', include('outreach.urls')),
+    path('api/payments/', include('payments.urls')),
 ]
 
 if settings.DEBUG:
