@@ -38,7 +38,6 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'django_filters',
-    'rest_framework_simplejwt',
     'projects',
     'users',
     'scrapers',

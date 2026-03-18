@@ -18,11 +18,29 @@ def _frontend_default_url(path: str = "/settings") -> str:
 
 def create_manual_payoneer_topup(*, topup: TopUp) -> dict[str, Any]:
     # Manual provider: user is instructed to transfer, admin later marks it succeeded.
+    receive_email = os.getenv("PAYONEER_RECEIVE_EMAIL", "").strip()
+    reference = f"PAYONEER-TOPUP-{topup.id}"
     topup.status = TopUpStatus.PENDING
     topup.save(update_fields=["status", "updated_at"])
+    if receive_email:
+        message = (
+            f"Send the Payoneer transfer to {receive_email} and include reference {reference}. "
+            "Once payment is received, support/admin will confirm it and your balance will be updated."
+        )
+    else:
+        message = (
+            f"Payoneer top-up created as pending. Use reference {reference} when sending the transfer "
+            "and follow the Payoneer receiving details provided by support/admin."
+        )
     return {
         "kind": "manual",
-        "message": "Payoneer top-up created as pending. Please follow the Payoneer transfer instructions provided by support/admin.",
+        "message": message,
+        "payoneer_receive_email": receive_email or None,
+        "reference": reference,
+        "instructions": (
+            "If your Payoneer account supports email transfers, send the payment to the receiving email above. "
+            "If not, use the payment request or receiving details shared by support/admin."
+        ),
     }
 
 

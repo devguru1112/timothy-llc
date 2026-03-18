@@ -1,4 +1,5 @@
 import json
+import importlib.util
 import os
 from decimal import Decimal
 
@@ -31,6 +32,10 @@ class CreateTopUpView(APIView):
         amount = Decimal(serializer.validated_data["amount"])
         success_url = serializer.validated_data.get("success_url") or None
         cancel_url = serializer.validated_data.get("cancel_url") or None
+
+        provider_error = self._get_provider_setup_error(provider)
+        if provider_error:
+            return Response({"detail": provider_error}, status=400)
 
         topup = TopUp.objects.create(
             user=request.user,
@@ -90,6 +95,28 @@ class CreateTopUpView(APIView):
             topup.status = TopUpStatus.FAILED
             topup.save(update_fields=["status", "updated_at"])
             return Response({"detail": str(e)}, status=400)
+
+    def _get_provider_setup_error(self, provider: str) -> str | None:
+        if provider == TopUpProvider.STRIPE:
+            missing = []
+            if importlib.util.find_spec("stripe") is None:
+                missing.append("Python package 'stripe' is not installed")
+            if not os.getenv("STRIPE_SECRET_KEY"):
+                missing.append("STRIPE_SECRET_KEY")
+            if missing:
+                return "Stripe is not configured: " + ", ".join(missing) + "."
+
+        if provider == TopUpProvider.PAYPAL:
+            missing = [name for name in ("PAYPAL_CLIENT_ID", "PAYPAL_CLIENT_SECRET") if not os.getenv(name)]
+            if missing:
+                return "PayPal is not configured: missing " + ", ".join(missing) + "."
+
+        if provider == TopUpProvider.CRYPTO:
+            missing = [name for name in ("COINBASE_COMMERCE_API_KEY",) if not os.getenv(name)]
+            if missing:
+                return "Crypto top-ups are not configured: missing " + ", ".join(missing) + "."
+
+        return None
 
 
 class PayPalCaptureView(APIView):

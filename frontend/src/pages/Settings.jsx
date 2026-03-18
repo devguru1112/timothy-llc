@@ -630,10 +630,16 @@ function TopUpSection() {
       if (data.kind === 'redirect' && data.redirect_url) {
         window.location.href = data.redirect_url
       } else if (data.kind === 'manual') {
-        setMessage(
-          data.message ||
-            'Payoneer top-up created. Please contact support or follow the provided Payoneer instructions.'
-        )
+        const parts = []
+        if (data.message) parts.push(data.message)
+        if (data.payoneer_receive_email) {
+          parts.push(`Payoneer receive email: ${data.payoneer_receive_email}`)
+        }
+        if (data.reference) {
+          parts.push(`Reference: ${data.reference}`)
+        }
+        if (data.instructions) parts.push(data.instructions)
+        setMessage(parts.join(' '))
       } else {
         setMessage('Top-up created. Follow the payment instructions.')
       }
@@ -687,7 +693,7 @@ function TopUpSection() {
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
       {message && <p className="mt-3 text-sm text-green-600">{message}</p>}
       <p className="mt-3 text-xs text-gray-500">
-        Stripe is used for card payments. Payoneer is handled manually; you will receive instructions from support.
+        Stripe is used for card payments. Payoneer is handled manually; the app will show the receiving email and reference if configured.
       </p>
     </div>
   )
