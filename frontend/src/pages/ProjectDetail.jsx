@@ -64,6 +64,8 @@ export default function ProjectDetail() {
     }
   )
 
+  const viewStats = project?.view_stats
+
   if (isLoading) return <div className="text-center py-12">Loading...</div>
   if (!project) return <div className="text-center py-12">Project not found</div>
 
@@ -80,6 +82,37 @@ export default function ProjectDetail() {
           {project.title}
         </h1>
       </div>
+
+      {viewStats && (
+        <div
+          className={`mb-6 rounded-xl border px-5 py-4 ${
+            viewStats.reached ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-slate-50'
+          }`}
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-slate-900">
+                {viewStats.reached
+                  ? 'You have reached your free project limit.'
+                  : `You have viewed ${viewStats.count} of ${viewStats.limit} free projects.`}
+              </p>
+              <p className="mt-1 text-sm text-slate-600">
+                {viewStats.reached
+                  ? 'Unlock Pro Plan to keep browsing new project opportunities.'
+                  : `${viewStats.remaining} free project views remaining.`}
+              </p>
+            </div>
+            {viewStats.reached && (
+              <button
+                onClick={() => navigate('/dashboard/settings')}
+                className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              >
+                Unlock Pro Plan
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="bg-white shadow-sm ring-1 ring-slate-200/60 rounded-xl overflow-hidden">
         {/* Meta / Project details */}

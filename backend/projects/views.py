@@ -6,7 +6,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q
 from .models import (
     ProjectLead, SourcePlatform, ProjectMatch, 
-    ProjectApplication, SystemSettings, JobCategory, ScrapingConfig
+    ProjectApplication, ProjectView, SystemSettings, JobCategory, ScrapingConfig
 )
 from .serializers import (
     ProjectLeadSerializer, 
@@ -145,6 +145,23 @@ class ProjectLeadViewSet(viewsets.ModelViewSet):
             queryset = queryset[:free_limit]
         return queryset
 
+    def _record_project_view(self, user, project):
+        """Create or reuse a unique view record and return the user's view stats."""
+        if not user.is_authenticated or user.is_superuser or getattr(user, 'is_fully_verified', False):
+            return None
+
+        ProjectView.objects.get_or_create(user=user, project=project)
+        seen_count = ProjectView.objects.filter(user=user).count()
+        free_limit = SystemSettings.get_int_setting('free_projects_limit', 10)
+        remaining = max(0, free_limit - seen_count)
+
+        return {
+            'count': seen_count,
+            'limit': free_limit,
+            'remaining': remaining,
+            'reached': seen_count >= free_limit,
+        }
+
     @action(detail=False, methods=['get'], permission_classes=[AllowAny])
     def public(self, request):
         """Public endpoint for browsing free projects (no authentication required)."""
@@ -171,6 +188,22 @@ class ProjectLeadViewSet(viewsets.ModelViewSet):
             'limit': limit,
             'results': serializer.data
         })
+
+    def retrieve(self, request, *args, **kwargs):
+        """Return a single project and record a unique view for eligible users."""
+        # Anonymous view limiting is enforced in middleware; if it blocked, this won't run.
+        # If middleware attached stats, we include them in the response.
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        data = serializer.data
+
+        view_stats = self._record_project_view(request.user, instance)
+        if view_stats:
+            data['view_stats'] = view_stats
+        elif hasattr(request, 'project_view_stats'):
+            data['view_stats'] = request.project_view_stats
+
+        return Response(data)
 
     @action(detail=True, methods=['post'])
     def qualify(self, request, pk=None):

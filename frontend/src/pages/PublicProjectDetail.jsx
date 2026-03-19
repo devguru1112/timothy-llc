@@ -10,12 +10,13 @@ export default function PublicProjectDetail() {
   const navigate = useNavigate()
   const [showApplicationForm, setShowApplicationForm] = useState(false)
 
-  const { data: project, isLoading } = useQuery(
+  const { data: project, isLoading, error } = useQuery(
     ['public-project', id],
     async () => {
       const response = await api.get(`/projects/leads/${id}/`)
       return response.data
-    }
+    },
+    { retry: false }
   )
 
   const applicationMutation = useMutation(
@@ -60,6 +61,72 @@ export default function PublicProjectDetail() {
     )
   }
 
+  const errorData = error?.response?.data
+  const blockedViewStats = errorData?.view_stats
+
+  if (errorData?.requires_upgrade) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <nav className="bg-white shadow-sm border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between h-16">
+              <div className="flex items-center">
+                <Link to="/public" className="text-blue-600 hover:text-blue-800 mr-4">
+                  ← Back
+                </Link>
+                <h1 className="text-xl font-bold text-gray-900">Project Matcher</h1>
+              </div>
+              <div className="flex items-center space-x-4">
+                <Link
+                  to="/login"
+                  className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  to="/register"
+                  className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700"
+                >
+                  Sign Up
+                </Link>
+              </div>
+            </div>
+          </div>
+        </nav>
+
+        <div className="max-w-3xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+          <div className="bg-white shadow-sm rounded-lg border border-amber-200">
+            <div className="p-6">
+              <h2 className="text-xl font-semibold text-gray-900">Unlock Pro Plan</h2>
+              <p className="mt-2 text-sm text-gray-600">
+                {errorData?.message || 'You have reached your free project limit.'}
+              </p>
+              {blockedViewStats && (
+                <p className="mt-2 text-sm text-gray-600">
+                  You have viewed {blockedViewStats.count} of {blockedViewStats.limit} free projects.
+                </p>
+              )}
+              <div className="mt-5 flex flex-wrap gap-3">
+                <Link
+                  to="/register"
+                  className="inline-flex items-center justify-center rounded-md bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
+                >
+                  Unlock Pro Plan
+                </Link>
+                <Link
+                  to="/public"
+                  className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Back to Projects
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (!project) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -76,6 +143,8 @@ export default function PublicProjectDetail() {
   const handleApply = () => {
     setShowApplicationForm(true)
   }
+
+  const viewStats = project?.view_stats
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -109,6 +178,37 @@ export default function PublicProjectDetail() {
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        {viewStats && (
+          <div
+            className={`mb-6 rounded-lg border px-4 py-4 ${
+              viewStats.reached ? 'border-amber-200 bg-amber-50' : 'border-gray-200 bg-white'
+            }`}
+          >
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-gray-900">
+                  {viewStats.reached
+                    ? 'You have reached your free project limit.'
+                    : `You have viewed ${viewStats.count} of ${viewStats.limit} free projects.`}
+                </p>
+                <p className="mt-1 text-sm text-gray-600">
+                  {viewStats.reached
+                    ? 'Unlock Pro Plan to keep browsing new project opportunities.'
+                    : `${viewStats.remaining} free project views remaining.`}
+                </p>
+              </div>
+              {viewStats.reached && (
+                <button
+                  onClick={() => navigate('/register')}
+                  className="inline-flex items-center justify-center rounded-md bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
+                >
+                  Unlock Pro Plan
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="bg-white shadow overflow-hidden sm:rounded-lg">
           <div className="px-4 py-5 sm:px-6">
             <div className="flex justify-between items-start">
