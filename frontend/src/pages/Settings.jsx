@@ -211,6 +211,12 @@ export default function Settings() {
                 />
               </dd>
             </div>
+            <div>
+              <dt className="text-sm font-medium text-gray-500">Balance</dt>
+              <dd className="mt-1 text-sm text-gray-900">
+                ${Number(profile.balance ?? 0).toFixed(2)}
+              </dd>
+            </div>
             <div className="sm:col-span-2">
               <dt className="text-sm font-medium text-gray-500">Photo</dt>
               <dd className="mt-2 flex items-center gap-4">
@@ -321,6 +327,16 @@ export default function Settings() {
             </div>
           </dl>
         </div>
+      </div>
+
+      <div className="mt-8 bg-white shadow overflow-hidden sm:rounded-lg">
+        <div className="px-4 py-5 sm:px-6">
+          <h3 className="text-lg leading-6 font-medium text-gray-900">Top up balance</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            Add funds to your account using card (Stripe), PayPal, Payoneer, or crypto.
+          </p>
+        </div>
+        <TopUpSection />
       </div>
 
       <div className="mt-8 bg-white shadow overflow-hidden sm:rounded-lg">
@@ -585,6 +601,100 @@ export default function Settings() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function TopUpSection() {
+  const [amount, setAmount] = useState('')
+  const [provider, setProvider] = useState('stripe')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
+
+  const handleTopUp = async () => {
+    setError('')
+    setMessage('')
+    const value = parseFloat(amount)
+    if (!value || value <= 0) {
+      setError('Enter a valid amount greater than 0.')
+      return
+    }
+    setLoading(true)
+    try {
+      const res = await api.post('/payments/topups/create/', {
+        provider,
+        amount: value.toFixed(2),
+      })
+      const data = res.data
+      if (data.kind === 'redirect' && data.redirect_url) {
+        window.location.href = data.redirect_url
+      } else if (data.kind === 'manual') {
+        const parts = []
+        if (data.message) parts.push(data.message)
+        if (data.payoneer_receive_email) {
+          parts.push(`Payoneer receive email: ${data.payoneer_receive_email}`)
+        }
+        if (data.reference) {
+          parts.push(`Reference: ${data.reference}`)
+        }
+        if (data.instructions) parts.push(data.instructions)
+        setMessage(parts.join(' '))
+      } else {
+        setMessage('Top-up created. Follow the payment instructions.')
+      }
+    } catch (e) {
+      const detail = e?.response?.data?.detail || 'Failed to create top-up.'
+      setError(detail)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="border-t border-gray-200 px-4 py-5 sm:px-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Amount (USD)</label>
+          <input
+            type="number"
+            min="1"
+            step="0.01"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            placeholder="50.00"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Payment method</label>
+          <select
+            value={provider}
+            onChange={(e) => setProvider(e.target.value)}
+            className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
+          >
+            <option value="stripe">Card (Stripe)</option>
+            <option value="paypal">PayPal</option>
+            <option value="payoneer">Payoneer (manual)</option>
+            <option value="crypto">Crypto (Coinbase)</option>
+          </select>
+        </div>
+        <div className="flex items-end">
+          <button
+            type="button"
+            onClick={handleTopUp}
+            disabled={loading}
+            className="inline-flex w-full justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
+          >
+            {loading ? 'Processing…' : 'Top up'}
+          </button>
+        </div>
+      </div>
+      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+      {message && <p className="mt-3 text-sm text-green-600">{message}</p>}
+      <p className="mt-3 text-xs text-gray-500">
+        Stripe is used for card payments. Payoneer is handled manually; the app will show the receiving email and reference if configured.
+      </p>
     </div>
   )
 }

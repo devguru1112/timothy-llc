@@ -38,11 +38,11 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'django_filters',
-    'rest_framework_simplejwt',
     'projects',
     'users',
     'scrapers',
     'outreach',
+    'payments',
 ]
 
 MIDDLEWARE = [
@@ -54,6 +54,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'projects.middleware.ProjectViewLimitMiddleware',
     'projects.middleware.ApplicationLimitMiddleware',
 ]
 

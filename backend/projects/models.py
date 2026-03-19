@@ -216,6 +216,24 @@ class ProjectLead(models.Model):
         return self.title
 
 
+class ProjectView(models.Model):
+    """Tracks which authenticated users have viewed which project leads."""
+    project = models.ForeignKey(ProjectLead, on_delete=models.CASCADE, related_name='views')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='project_views')
+    viewed_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'project_views'
+        unique_together = ['project', 'user']
+        indexes = [
+            models.Index(fields=['user', 'viewed_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} viewed {self.project.title}"
+
+
 class ProjectMatch(models.Model):
     """Tracks matches between projects and community members."""
     project = models.ForeignKey(ProjectLead, on_delete=models.CASCADE, related_name='matches')
