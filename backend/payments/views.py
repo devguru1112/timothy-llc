@@ -3,14 +3,16 @@ import importlib.util
 import os
 from decimal import Decimal
 
+from django.db import transaction
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from projects.models import SystemSettings
 from .models import TopUp, TopUpProvider, TopUpStatus
-from .serializers import CreateTopUpSerializer
+from .serializers import CreateTopUpSerializer, PlanPurchaseSerializer
 from .services import (
     create_coinbase_charge,
     create_manual_payoneer_topup,
@@ -19,6 +21,177 @@ from .services import (
     mark_topup_succeeded,
     verify_coinbase_webhook,
 )
+
+PLAN_DEFS = {
+    "pro": {
+        "setting_key": "plan_pro_monthly_price",
+        "default_monthly_price": Decimal("29.00"),
+        "priority_level": 3,
+        "display_name": "Pro",
+    },
+    "premium": {
+        "setting_key": "plan_premium_monthly_price",
+        "default_monthly_price": Decimal("79.00"),
+        "priority_level": 5,
+        "display_name": "Premium",
+    },
+}
+
+PLAN_DURATIONS = [
+    {"months": 1, "discount_pct": 0},
+    {"months": 3, "discount_pct": 10},
+    {"months": 6, "discount_pct": 15},
+    {"months": 12, "discount_pct": 25},
+]
+
+
+def _to_money(value: Decimal) -> Decimal:
+    return value.quantize(Decimal("0.01"))
+
+
+def _get_monthly_price(plan_key: str) -> Decimal:
+    config = PLAN_DEFS[plan_key]
+    default_price = config["default_monthly_price"]
+    setting_key = config["setting_key"]
+    setting, _ = SystemSettings.objects.get_or_create(
+        key=setting_key,
+        defaults={
+            "value": str(_to_money(default_price)),
+            "description": f"Monthly price for {config['display_name']} plan in USD.",
+        },
+    )
+    raw = setting.value
+    try:
+        price = Decimal(str(raw))
+    except Exception:
+        price = default_price
+    if price <= 0:
+        price = default_price
+    return _to_money(price)
+
+
+def _plan_catalog_for_response() -> dict:
+    plans = {}
+    for key, config in PLAN_DEFS.items():
+        monthly = _get_monthly_price(key)
+        options = []
+        for duration in PLAN_DURATIONS:
+            months = duration["months"]
+            discount_pct = duration["discount_pct"]
+            subtotal = _to_money(monthly * months)
+            total = _to_money(subtotal * (Decimal("1") - (Decimal(discount_pct) / Decimal("100"))))
+            options.append(
+                {
+                    "months": months,
+                    "discount_pct": discount_pct,
+                    "subtotal": str(subtotal),
+                    "total": str(total),
+                    "monthly_equivalent": str(_to_money(total / months)),
+                }
+            )
+        plans[key] = {
+            "id": key,
+            "name": config["display_name"],
+            "priority_level": config["priority_level"],
+            "monthly_price": str(monthly),
+            "options": options,
+        }
+    return {"plans": plans}
+
+
+class PlanPricingView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response(_plan_catalog_for_response(), status=200)
+
+    def patch(self, request):
+        if not request.user.is_superuser:
+            return Response({"detail": "Only super admin can update plan prices."}, status=403)
+
+        updates = [
+            ("pro_monthly_price", PLAN_DEFS["pro"]["setting_key"], "Monthly price for Pro plan in USD."),
+            ("premium_monthly_price", PLAN_DEFS["premium"]["setting_key"], "Monthly price for Premium plan in USD."),
+        ]
+        updated = False
+
+        for payload_key, setting_key, description in updates:
+            if payload_key not in request.data:
+                continue
+            try:
+                amount = _to_money(Decimal(str(request.data.get(payload_key))))
+            except Exception:
+                return Response({"detail": f"Invalid value for {payload_key}."}, status=400)
+            if amount <= 0:
+                return Response({"detail": f"{payload_key} must be greater than 0."}, status=400)
+
+            setting, _ = SystemSettings.objects.get_or_create(
+                key=setting_key,
+                defaults={"value": str(amount), "description": description},
+            )
+            setting.value = str(amount)
+            setting.description = description
+            setting.updated_by = request.user
+            setting.save(update_fields=["value", "description", "updated_by", "updated_at"])
+            updated = True
+
+        if not updated:
+            return Response({"detail": "No valid fields provided."}, status=400)
+
+        return Response(_plan_catalog_for_response(), status=200)
+
+
+class PlanPurchaseView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = PlanPurchaseSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        plan_key = serializer.validated_data["plan"]
+        months = int(serializer.validated_data["months"])
+        config = PLAN_DEFS[plan_key]
+
+        monthly = _get_monthly_price(plan_key)
+        duration = next((d for d in PLAN_DURATIONS if d["months"] == months), None)
+        if not duration:
+            return Response({"detail": "Unsupported duration."}, status=400)
+
+        subtotal = _to_money(monthly * months)
+        discount_pct = duration["discount_pct"]
+        total = _to_money(subtotal * (Decimal("1") - (Decimal(discount_pct) / Decimal("100"))))
+
+        with transaction.atomic():
+            user = request.user.__class__.objects.select_for_update().get(pk=request.user.pk)
+            current_balance = _to_money(Decimal(user.balance))
+            if current_balance < total:
+                shortfall = _to_money(total - current_balance)
+                return Response(
+                    {
+                        "detail": "Insufficient balance.",
+                        "required": str(total),
+                        "current_balance": str(current_balance),
+                        "shortfall": str(shortfall),
+                    },
+                    status=400,
+                )
+
+            user.balance = _to_money(current_balance - total)
+            user.priority_level = max(int(user.priority_level or 1), int(config["priority_level"]))
+            user.save(update_fields=["balance", "priority_level", "updated_at"])
+
+        return Response(
+            {
+                "status": "succeeded",
+                "plan": plan_key,
+                "months": months,
+                "discount_pct": discount_pct,
+                "charged_amount": str(total),
+                "new_balance": str(_to_money(Decimal(user.balance))),
+                "priority_level": user.priority_level,
+            },
+            status=200,
+        )
 
 
 class CreateTopUpView(APIView):

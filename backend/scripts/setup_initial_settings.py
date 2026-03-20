@@ -38,6 +38,16 @@ def setup_settings():
             'value': 'daniel.dimitar.lee@gmail.com',
             'description': 'Email used as User-Agent for USAJobs.gov API (required for USAJobs scraper).',
         },
+        {
+            'key': 'plan_pro_monthly_price',
+            'value': '29.00',
+            'description': 'Monthly USD price for Pro plan.',
+        },
+        {
+            'key': 'plan_premium_monthly_price',
+            'value': '79.00',
+            'description': 'Monthly USD price for Premium plan.',
+        },
     ]
     
     created_count = 0

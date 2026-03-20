@@ -23,3 +23,8 @@ class CreateTopUpSerializer(serializers.Serializer):
             raise serializers.ValidationError("Amount must have max 2 decimal places.")
         return value
 
+
+class PlanPurchaseSerializer(serializers.Serializer):
+    plan = serializers.ChoiceField(choices=[("pro", "pro"), ("premium", "premium")])
+    months = serializers.ChoiceField(choices=[(1, 1), (3, 3), (6, 6), (12, 12)])
+

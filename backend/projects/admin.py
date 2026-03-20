@@ -73,8 +73,7 @@ class SystemSettingsAdmin(admin.ModelAdmin):
     readonly_fields = ['updated_at']
     
     def save_model(self, request, obj, form, change):
-        if not change:  # New object
-            obj.updated_by = request.user
+        obj.updated_by = request.user
         super().save_model(request, obj, form, change)
 
 

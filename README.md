@@ -9,6 +9,8 @@ An agentic project aggregation and matching platform that helps community member
 - **Smart Matching**: Matches projects with community members based on skills and priority
 - **Outreach Management**: Track and manage outreach messages to prospects
 - **User Dashboard**: View available projects, matched projects, and outreach statistics
+- **Plan Purchases**: Users can unlock Pro/Premium via a purchase page with duration discounts
+- **Admin-Controlled Pricing**: Super admin controls monthly Pro/Premium prices from Django Admin
 
 ## Tech Stack
 
@@ -63,7 +65,12 @@ python manage.py migrate
 python manage.py createsuperuser
 ```
 
-8. Start the development server:
+8. (Optional but recommended) seed default system settings:
+```bash
+python manage.py shell -c "from scripts.setup_initial_settings import setup_settings; setup_settings()"
+```
+
+9. Start the development server:
 ```bash
 python manage.py runserver
 ```
@@ -241,6 +248,33 @@ timothy-llc/
 - `GET /api/outreach/messages/` - List outreach messages
 - `POST /api/outreach/messages/` - Create outreach message
 - `POST /api/outreach/messages/{id}/send/` - Send message
+
+### Payments / Plans
+- `POST /api/payments/topups/create/` - Create wallet top-up (Stripe/PayPal/Payoneer/Crypto)
+- `GET /api/payments/plans/` - Get plan catalog with monthly prices and discounted duration options
+- `PATCH /api/payments/plans/` - Update Pro/Premium monthly prices (**super admin only**)
+- `POST /api/payments/plans/purchase/` - Purchase Pro/Premium using wallet balance
+
+## Plans & Pricing
+
+- **Plans**:
+  - Starter (default): priority level `1`
+  - Pro: priority level `3`
+  - Premium: priority level `5`
+- **Who sets price**: super admin sets monthly Pro/Premium prices in Django Admin (`/admin`) under `System Settings` keys:
+  - `plan_pro_monthly_price`
+  - `plan_premium_monthly_price`
+- **Purchase flow**:
+  1. User opens `/dashboard/plans`
+  2. Clicks unlock for Pro or Premium
+  3. App opens `/dashboard/plans/purchase/{planId}`
+  4. User selects duration and confirms purchase
+- **Discount rules**:
+  - `1 month`: base monthly price
+  - `3 months`: 10% off (`base * 3 * 0.90`)
+  - `6 months`: 15% off (`base * 6 * 0.85`)
+  - `12 months`: 25% off (`base * 12 * 0.75`)
+- **Payment source**: purchase is charged from user wallet balance.
 
 ## Development Notes
 
