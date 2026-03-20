@@ -1,7 +1,7 @@
 import { useQuery } from 'react-query'
 import api from '../services/api'
 import { Link } from 'react-router-dom'
-import { BriefcaseIcon, EnvelopeIcon, CheckCircleIcon } from '@heroicons/react/24/outline'
+import { BriefcaseIcon, EnvelopeIcon, CheckCircleIcon, SparklesIcon } from '@heroicons/react/24/outline'
 import { format } from 'date-fns'
 
 export default function Dashboard() {
@@ -196,6 +196,31 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      <div className="mt-8 overflow-hidden rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 shadow-sm">
+        <div className="px-5 py-5 sm:px-6 sm:py-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <div className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-700 ring-1 ring-blue-100">
+                <SparklesIcon className="h-4 w-4" aria-hidden />
+                Unlock premium
+              </div>
+              <h2 className="mt-3 text-xl font-semibold tracking-tight text-slate-900">
+                Want better priority in matching?
+              </h2>
+              <p className="mt-1 text-sm text-slate-600">
+                Upgrade your plan to boost visibility and get surfaced earlier for incoming projects.
+              </p>
+            </div>
+            <Link
+              to="/dashboard/plans"
+              className="inline-flex shrink-0 items-center justify-center rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+            >
+              View plans
+            </Link>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

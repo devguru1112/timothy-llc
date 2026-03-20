@@ -148,6 +148,11 @@ def scrape_platform(platform_id: int, limit: int = 50, category_ids: list = None
                 "Check ScrapingConfig categories or run without category filter."
             )
         logger.info(f"Scraped {projects_added} new projects from {platform.name}")
+
+        # Notify community members (non-admin) by email when new leads were added
+        if projects_added > 0:
+            notify_community_new_projects_after_scrape.delay(projects_added, platform.name)
+
         return {'status': 'success', 'projects_added': projects_added}
         
     except SourcePlatform.DoesNotExist:
@@ -219,3 +224,13 @@ def run_scheduled_scrape():
     except Exception as e:
         logger.exception("run_scheduled_scrape failed: %s", e)
         return {'status': 'error', 'message': str(e)}
+
+
+@shared_task
+def notify_community_new_projects_after_scrape(projects_added: int, platform_name: str):
+    """
+    Send "new projects" emails to all active non-staff users after a scrape adds leads.
+    Runs asynchronously so scrape_platform is not blocked on SMTP.
+    """
+    from scrapers.notification_service import send_new_projects_emails
+    return send_new_projects_emails(projects_added, platform_name)

@@ -10,6 +10,7 @@ import AvailableProjects from './pages/AvailableProjects'
 import Scraping from './pages/Scraping'
 import Outreach from './pages/Outreach'
 import Settings from './pages/Settings'
+import Plans from './pages/Plans'
 import PublicProjects from './pages/PublicProjects'
 import PublicProjectDetail from './pages/PublicProjectDetail'
 import Layout from './components/Layout'
@@ -86,6 +87,7 @@ function AppRoutes() {
         <Route path="scraping" element={<Scraping />} />
         <Route path="outreach" element={<Outreach />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="plans" element={<Plans />} />
       </Route>
       
       {/* Legacy routes - redirect to dashboard for authenticated users */}
@@ -104,6 +106,7 @@ function AppRoutes() {
         <Route path="scraping" element={<Scraping />} />
         <Route path="outreach" element={<Outreach />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="plans" element={<Plans />} />
       </Route>
     </Routes>
   )

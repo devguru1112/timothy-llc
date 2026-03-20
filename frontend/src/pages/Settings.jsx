@@ -2,7 +2,67 @@ import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
 import { useState, useEffect } from 'react'
-import { ArrowPathIcon, ClockIcon } from '@heroicons/react/24/outline'
+import {
+  AcademicCapIcon,
+  ArrowPathIcon,
+  BanknotesIcon,
+  BriefcaseIcon,
+  ClockIcon,
+  CreditCardIcon,
+  CurrencyDollarIcon,
+  GlobeAltIcon,
+  UserCircleIcon,
+} from '@heroicons/react/24/outline'
+
+function formatUsd(n) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(n)
+}
+
+const inputShell =
+  'rounded-xl border-0 bg-white py-2.5 px-3 text-sm text-slate-900 shadow-sm ring-1 ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500'
+
+const inputClass = `block w-full ${inputShell}`
+
+const inputClassCompact = `block w-auto min-w-[6.5rem] ${inputShell}`
+
+const textareaClass = `block w-full min-h-[100px] ${inputShell}`
+
+const btnPrimary =
+  'inline-flex items-center justify-center rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50'
+
+const btnPrimarySm =
+  'inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+
+const btnRemove =
+  'shrink-0 rounded-lg px-2.5 py-1 text-sm font-medium text-red-600 transition hover:bg-red-50'
+
+function SettingsSectionHeader({ eyebrow, title, description, icon: Icon }) {
+  return (
+    <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50/90 to-white px-6 py-5 sm:px-8">
+      <div className="flex items-start gap-4">
+        {Icon && (
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600/10 text-blue-600">
+            <Icon className="h-5 w-5" aria-hidden />
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          {eyebrow && (
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{eyebrow}</p>
+          )}
+          <h3 className="mt-0.5 text-lg font-semibold tracking-tight text-slate-900">{title}</h3>
+          {description && (
+            <p className="mt-1.5 text-sm leading-relaxed text-slate-600">{description}</p>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function Settings() {
   const { user, fetchUser } = useAuth()
@@ -172,59 +232,68 @@ export default function Settings() {
     updateMutation.mutate({ work_history: updated })
   }
 
-  if (!profile) return <div className="text-center py-12">Loading...</div>
+  if (!profile) {
+    return (
+      <div className="mx-auto flex max-w-5xl flex-col items-center justify-center py-24">
+        <div
+          className="h-10 w-10 animate-spin rounded-full border-2 border-slate-200 border-t-blue-600"
+          aria-hidden
+        />
+        <p className="mt-4 text-sm font-medium text-slate-600">Loading settings…</p>
+      </div>
+    )
+  }
 
   return (
-    <div>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-        <p className="mt-2 text-sm text-gray-600">Manage your profile and preferences</p>
+    <div className="mx-auto max-w-5xl pb-12">
+      <div className="mb-10">
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900">Settings</h1>
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
+          Manage your profile, wallet, and preferences. Changes to bio and summary are saved when you click Save.
+        </p>
       </div>
 
-      <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-        <div className="px-4 py-5 sm:px-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900">Profile</h3>
-        </div>
-        <div className="border-t border-gray-200 px-4 py-5 sm:px-6">
-          <dl className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
-            <div>
-              <dt className="text-sm font-medium text-gray-500">Username</dt>
-              <dd className="mt-1 text-sm text-gray-900">{profile.username}</dd>
+      <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm ring-1 ring-slate-900/5">
+        <SettingsSectionHeader
+          eyebrow="Account"
+          title="Profile"
+          description="Your public details, portfolio link, and skills used for matching."
+          icon={UserCircleIcon}
+        />
+        <div className="px-6 py-6 sm:px-8">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-xl bg-slate-50/80 p-4 ring-1 ring-slate-100">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Username</p>
+              <p className="mt-1 truncate text-sm font-semibold text-slate-900">{profile.username}</p>
             </div>
-            <div>
-              <dt className="text-sm font-medium text-gray-500">Email</dt>
-              <dd className="mt-1 text-sm text-gray-900">{profile.email}</dd>
+            <div className="rounded-xl bg-slate-50/80 p-4 ring-1 ring-slate-100">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Email</p>
+              <p className="mt-1 truncate text-sm font-semibold text-slate-900">{profile.email}</p>
             </div>
-            <div>
-              <dt className="text-sm font-medium text-gray-500">Priority Level</dt>
-              <dd className="mt-1 text-sm text-gray-900">{profile.priority_level}</dd>
+            <div className="rounded-xl bg-slate-50/80 p-4 ring-1 ring-slate-100">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Priority</p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">{profile.priority_level}</p>
             </div>
-            <div>
-              <dt className="text-sm font-medium text-gray-500">Portfolio</dt>
-              <dd className="mt-1">
-                <input
-                  type="url"
-                  value={portfolioUrl}
-                  onChange={(e) => setPortfolioUrl(e.target.value)}
-                  placeholder="https://…"
-                  className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                />
-              </dd>
+            <div className="rounded-xl bg-slate-50/80 p-4 ring-1 ring-slate-100">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Balance</p>
+              <p className="mt-1 text-sm font-semibold tabular-nums text-slate-900">
+                {formatUsd(Number(profile.balance ?? 0))}
+              </p>
             </div>
+          </div>
+
+          <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[auto_1fr] lg:items-start">
             <div>
-              <dt className="text-sm font-medium text-gray-500">Balance</dt>
-              <dd className="mt-1 text-sm text-gray-900">
-                ${Number(profile.balance ?? 0).toFixed(2)}
-              </dd>
-            </div>
-            <div className="sm:col-span-2">
-              <dt className="text-sm font-medium text-gray-500">Photo</dt>
-              <dd className="mt-2 flex items-center gap-4">
-                <div className="h-16 w-16 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center">
+              <p className="text-sm font-medium text-slate-800">Photo</p>
+              <p className="mt-0.5 text-xs text-slate-500">JPG or PNG</p>
+              <div className="mt-3 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+                <div className="h-20 w-20 overflow-hidden rounded-2xl bg-slate-100 ring-2 ring-white shadow-md ring-slate-200">
                   {profile.photo_url ? (
-                    <img src={profile.photo_url} alt="Profile" className="h-16 w-16 object-cover" />
+                    <img src={profile.photo_url} alt="" className="h-full w-full object-cover" />
                   ) : (
-                    <span className="text-xs text-gray-500">No photo</span>
+                    <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">
+                      No photo
+                    </div>
                   )}
                 </div>
                 <div>
@@ -236,135 +305,143 @@ export default function Settings() {
                       if (file) updatePhotoMutation.mutate(file)
                       e.target.value = ''
                     }}
-                    className="block text-sm text-gray-700"
+                    className="block w-full max-w-xs text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
                   />
                   {updatePhotoMutation.isError && (
-                    <div className="mt-1 text-sm text-red-600">
+                    <div className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
                       {updatePhotoMutation.error?.response?.data?.detail || 'Failed to upload photo'}
                     </div>
                   )}
                 </div>
-              </dd>
+              </div>
             </div>
-            <div className="sm:col-span-2">
-              <dt className="text-sm font-medium text-gray-500">Summary</dt>
-              <dd className="mt-1">
+            <div className="min-w-0 space-y-6">
+              <div>
+                <label className="text-sm font-medium text-slate-800">Portfolio URL</label>
+                <input
+                  type="url"
+                  value={portfolioUrl}
+                  onChange={(e) => setPortfolioUrl(e.target.value)}
+                  placeholder="https://…"
+                  className={`${inputClass} mt-2`}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-800">Summary</label>
                 <textarea
                   value={summary}
                   onChange={(e) => setSummary(e.target.value)}
                   rows={4}
                   placeholder="A short professional summary…"
-                  className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                  className={`${textareaClass} mt-2`}
                 />
-              </dd>
-            </div>
-            <div className="sm:col-span-2">
-              <dt className="text-sm font-medium text-gray-500">Bio</dt>
-              <dd className="mt-1">
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-800">Bio</label>
                 <textarea
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
                   rows={4}
                   placeholder="More detail about you…"
-                  className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                  className={`${textareaClass} mt-2`}
                 />
-                <div className="mt-3 flex items-center justify-end gap-3">
+                <div className="mt-3 flex flex-wrap items-center justify-end gap-3">
                   {updateMutation.isError && (
                     <span className="text-sm text-red-600">
                       {updateMutation.error?.response?.data?.detail || 'Failed to save'}
                     </span>
                   )}
-                  {updateMutation.isSuccess && (
-                    <span className="text-sm text-green-600">Saved</span>
+                  {updateMutation.isSuccess && !updateMutation.isLoading && (
+                    <span className="text-sm font-medium text-emerald-600">Saved</span>
                   )}
                   <button
                     type="button"
                     onClick={handleSaveBasics}
                     disabled={updateMutation.isLoading}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                    className={btnPrimary}
                   >
-                    {updateMutation.isLoading ? 'Saving…' : 'Save'}
+                    {updateMutation.isLoading ? 'Saving…' : 'Save profile'}
                   </button>
                 </div>
-              </dd>
+              </div>
             </div>
-            <div className="sm:col-span-2">
-              <dt className="text-sm font-medium text-gray-500 mb-2">Skills</dt>
-              <dd className="mt-1">
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {skills.map((skill, idx) => (
-                    <span
-                      key={idx}
-                      className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800"
-                    >
-                      {skill}
-                      <button
-                        onClick={() => handleRemoveSkill(skill)}
-                        className="ml-2 text-blue-600 hover:text-blue-800"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newSkill}
-                    onChange={(e) => setNewSkill(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleAddSkill()}
-                    placeholder="Add skill"
-                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                  />
+          </div>
+
+          <div className="mt-10 border-t border-slate-100 pt-8">
+            <label className="text-sm font-medium text-slate-800">Skills</label>
+            <p className="mt-0.5 text-xs text-slate-500">Press Enter or click Add — saved immediately</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {skills.map((skill, idx) => (
+                <span
+                  key={idx}
+                  className="inline-flex items-center gap-1 rounded-full bg-blue-50 py-1 pl-3 pr-1 text-sm font-medium text-blue-900 ring-1 ring-blue-100"
+                >
+                  {skill}
                   <button
-                    onClick={handleAddSkill}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    type="button"
+                    onClick={() => handleRemoveSkill(skill)}
+                    className="rounded-full p-0.5 text-blue-600 transition hover:bg-blue-100 hover:text-blue-800"
+                    aria-label={`Remove ${skill}`}
                   >
-                    Add
+                    ×
                   </button>
-                </div>
-              </dd>
+                </span>
+              ))}
             </div>
-          </dl>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+              <input
+                type="text"
+                value={newSkill}
+                onChange={(e) => setNewSkill(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAddSkill()}
+                placeholder="e.g. React, Python, AWS"
+                className={inputClass}
+              />
+              <button type="button" onClick={handleAddSkill} className={`${btnPrimarySm} shrink-0 sm:w-auto`}>
+                Add skill
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="mt-8 bg-white shadow overflow-hidden sm:rounded-lg">
-        <div className="px-4 py-5 sm:px-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900">Top up balance</h3>
-          <p className="mt-1 text-sm text-gray-500">
-            Add funds to your account using card (Stripe), PayPal, Payoneer, or crypto.
-          </p>
-        </div>
-        <TopUpSection />
-      </div>
+      <TopUpSection balance={Number(profile.balance ?? 0)} />
 
-      <div className="mt-8 bg-white shadow overflow-hidden sm:rounded-lg">
-        <div className="px-4 py-5 sm:px-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900">Education</h3>
-          <p className="mt-1 text-sm text-gray-500">Add schools, degrees, and relevant notes.</p>
-        </div>
-        <div className="border-t border-gray-200 px-4 py-5 sm:px-6 space-y-4">
+      <div className="mt-8 overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm ring-1 ring-slate-900/5">
+        <SettingsSectionHeader
+          eyebrow="Background"
+          title="Education"
+          description="Schools, degrees, and notes that strengthen your profile."
+          icon={AcademicCapIcon}
+        />
+        <div className="space-y-6 px-6 py-6 sm:px-8">
           {education.length === 0 ? (
-            <div className="text-sm text-gray-500">No education added yet.</div>
+            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-4 py-8 text-center text-sm text-slate-500">
+              No education yet. Add your first entry below.
+            </div>
           ) : (
             <ul className="space-y-3">
               {education.map((e, idx) => (
-                <li key={idx} className="flex items-start justify-between gap-4 rounded-md border border-gray-200 p-3">
+                <li
+                  key={idx}
+                  className="flex items-start justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm ring-1 ring-slate-900/[0.02]"
+                >
                   <div className="min-w-0">
-                    <div className="text-sm font-medium text-gray-900">
-                      {e.school || 'School'}{e.degree ? ` • ${e.degree}` : ''}{e.field ? `, ${e.field}` : ''}
+                    <div className="text-sm font-semibold text-slate-900">
+                      {e.school || 'School'}
+                      {e.degree ? ` · ${e.degree}` : ''}
+                      {e.field ? `, ${e.field}` : ''}
                     </div>
-                    <div className="text-xs text-gray-500">
+                    <div className="mt-1 text-xs font-medium text-slate-500">
                       {(e.startDate || '—')} – {(e.endDate || '—')}
                     </div>
-                    {e.description ? <div className="mt-2 text-sm text-gray-700 whitespace-pre-wrap">{e.description}</div> : null}
+                    {e.description ? (
+                      <div className="mt-3 text-sm leading-relaxed text-slate-600 whitespace-pre-wrap">
+                        {e.description}
+                      </div>
+                    ) : null}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveEducation(idx)}
-                    className="text-sm text-red-600 hover:text-red-800"
-                  >
+                  <button type="button" onClick={() => handleRemoveEducation(idx)} className={btnRemove}>
                     Remove
                   </button>
                 </li>
@@ -372,41 +449,43 @@ export default function Settings() {
             </ul>
           )}
 
-          <div className="pt-4 border-t border-gray-100">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="rounded-xl bg-slate-50/80 p-5 ring-1 ring-slate-100">
+            <p className="text-sm font-semibold text-slate-900">Add education</p>
+            <p className="mt-0.5 text-xs text-slate-500">School is required; other fields are optional.</p>
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <input
                 type="text"
                 value={newEdu.school}
                 onChange={(e) => setNewEdu((p) => ({ ...p, school: e.target.value }))}
                 placeholder="School"
-                className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                className={inputClass}
               />
               <input
                 type="text"
                 value={newEdu.degree}
                 onChange={(e) => setNewEdu((p) => ({ ...p, degree: e.target.value }))}
                 placeholder="Degree"
-                className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                className={inputClass}
               />
               <input
                 type="text"
                 value={newEdu.field}
                 onChange={(e) => setNewEdu((p) => ({ ...p, field: e.target.value }))}
                 placeholder="Field (optional)"
-                className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                className={inputClass}
               />
               <div className="grid grid-cols-2 gap-3">
                 <input
                   type="month"
                   value={newEdu.startDate}
                   onChange={(e) => setNewEdu((p) => ({ ...p, startDate: e.target.value }))}
-                  className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                  className={inputClass}
                 />
                 <input
                   type="month"
                   value={newEdu.endDate}
                   onChange={(e) => setNewEdu((p) => ({ ...p, endDate: e.target.value }))}
-                  className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                  className={inputClass}
                 />
               </div>
               <textarea
@@ -414,15 +493,11 @@ export default function Settings() {
                 onChange={(e) => setNewEdu((p) => ({ ...p, description: e.target.value }))}
                 rows={3}
                 placeholder="Description (optional)"
-                className="sm:col-span-2 shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                className={`${textareaClass} sm:col-span-2`}
               />
             </div>
-            <div className="mt-3 flex justify-end">
-              <button
-                type="button"
-                onClick={handleAddEducation}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-              >
+            <div className="mt-4 flex justify-end">
+              <button type="button" onClick={handleAddEducation} className={btnPrimary}>
                 Add education
               </button>
             </div>
@@ -430,32 +505,41 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className="mt-8 bg-white shadow overflow-hidden sm:rounded-lg">
-        <div className="px-4 py-5 sm:px-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900">Work history</h3>
-          <p className="mt-1 text-sm text-gray-500">Add roles you want to highlight.</p>
-        </div>
-        <div className="border-t border-gray-200 px-4 py-5 sm:px-6 space-y-4">
+      <div className="mt-8 overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm ring-1 ring-slate-900/5">
+        <SettingsSectionHeader
+          eyebrow="Experience"
+          title="Work history"
+          description="Roles and companies you want clients to see first."
+          icon={BriefcaseIcon}
+        />
+        <div className="space-y-6 px-6 py-6 sm:px-8">
           {workHistory.length === 0 ? (
-            <div className="text-sm text-gray-500">No work history added yet.</div>
+            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-4 py-8 text-center text-sm text-slate-500">
+              No work history yet. Add a role below.
+            </div>
           ) : (
             <ul className="space-y-3">
               {workHistory.map((w, idx) => (
-                <li key={idx} className="flex items-start justify-between gap-4 rounded-md border border-gray-200 p-3">
+                <li
+                  key={idx}
+                  className="flex items-start justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm ring-1 ring-slate-900/[0.02]"
+                >
                   <div className="min-w-0">
-                    <div className="text-sm font-medium text-gray-900">
-                      {w.title || 'Title'}{w.company ? ` • ${w.company}` : ''}
+                    <div className="text-sm font-semibold text-slate-900">
+                      {w.title || 'Title'}
+                      {w.company ? ` · ${w.company}` : ''}
                     </div>
-                    <div className="text-xs text-gray-500">
-                      {(w.startDate || '—')} – {(w.endDate || '—')}{w.location ? ` • ${w.location}` : ''}
+                    <div className="mt-1 text-xs font-medium text-slate-500">
+                      {(w.startDate || '—')} – {(w.endDate || '—')}
+                      {w.location ? ` · ${w.location}` : ''}
                     </div>
-                    {w.description ? <div className="mt-2 text-sm text-gray-700 whitespace-pre-wrap">{w.description}</div> : null}
+                    {w.description ? (
+                      <div className="mt-3 text-sm leading-relaxed text-slate-600 whitespace-pre-wrap">
+                        {w.description}
+                      </div>
+                    ) : null}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveWork(idx)}
-                    className="text-sm text-red-600 hover:text-red-800"
-                  >
+                  <button type="button" onClick={() => handleRemoveWork(idx)} className={btnRemove}>
                     Remove
                   </button>
                 </li>
@@ -463,34 +547,36 @@ export default function Settings() {
             </ul>
           )}
 
-          <div className="pt-4 border-t border-gray-100">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="rounded-xl bg-slate-50/80 p-5 ring-1 ring-slate-100">
+            <p className="text-sm font-semibold text-slate-900">Add position</p>
+            <p className="mt-0.5 text-xs text-slate-500">Title and company are required.</p>
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <input
                 type="text"
                 value={newWork.title}
                 onChange={(e) => setNewWork((p) => ({ ...p, title: e.target.value }))}
-                placeholder="Title"
-                className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                placeholder="Job title"
+                className={inputClass}
               />
               <input
                 type="text"
                 value={newWork.company}
                 onChange={(e) => setNewWork((p) => ({ ...p, company: e.target.value }))}
                 placeholder="Company"
-                className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                className={inputClass}
               />
               <div className="grid grid-cols-2 gap-3">
                 <input
                   type="month"
                   value={newWork.startDate}
                   onChange={(e) => setNewWork((p) => ({ ...p, startDate: e.target.value }))}
-                  className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                  className={inputClass}
                 />
                 <input
                   type="month"
                   value={newWork.endDate}
                   onChange={(e) => setNewWork((p) => ({ ...p, endDate: e.target.value }))}
-                  className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                  className={inputClass}
                 />
               </div>
               <input
@@ -498,22 +584,18 @@ export default function Settings() {
                 value={newWork.location}
                 onChange={(e) => setNewWork((p) => ({ ...p, location: e.target.value }))}
                 placeholder="Location (optional)"
-                className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                className={inputClass}
               />
               <textarea
                 value={newWork.description}
                 onChange={(e) => setNewWork((p) => ({ ...p, description: e.target.value }))}
                 rows={3}
                 placeholder="Description (optional)"
-                className="sm:col-span-2 shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                className={`${textareaClass} sm:col-span-2`}
               />
             </div>
-            <div className="mt-3 flex justify-end">
-              <button
-                type="button"
-                onClick={handleAddWork}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-              >
+            <div className="mt-4 flex justify-end">
+              <button type="button" onClick={handleAddWork} className={btnPrimary}>
                 Add work history
               </button>
             </div>
@@ -522,43 +604,55 @@ export default function Settings() {
       </div>
 
       {profile?.is_superuser && (
-        <div className="mt-8 bg-white shadow overflow-hidden sm:rounded-lg">
-          <div className="px-4 py-5 sm:px-6">
-            <h3 className="text-lg leading-6 font-medium text-gray-900">Scraping</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Run job scraping now or set the automatic scraping time.
-            </p>
-          </div>
-          <div className="border-t border-gray-200 px-4 py-5 sm:px-6 space-y-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={() => scrapeNowMutation.mutate()}
-                disabled={scrapeNowMutation.isLoading}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-              >
-                <ArrowPathIcon
-                  className={`-ml-1 mr-2 h-5 w-5 ${scrapeNowMutation.isLoading ? 'animate-spin' : ''}`}
-                  aria-hidden="true"
-                />
-                {scrapeNowMutation.isLoading ? 'Starting…' : 'Run scraping now'}
-              </button>
-              {scrapeNowMutation.isSuccess && (
-                <span className="text-sm text-green-600">Scraping started in background.</span>
-              )}
-              {scrapeNowMutation.isError && (
-                <span className="text-sm text-red-600">
-                  {scrapeNowMutation.error?.response?.data?.error ||
-                    scrapeNowMutation.error?.response?.data?.detail ||
-                    'Failed to start'}
-                </span>
-              )}
+        <div className="mt-8 overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm ring-1 ring-slate-900/5">
+          <SettingsSectionHeader
+            eyebrow="Admin"
+            title="Job scraping"
+            description="Trigger a scrape immediately or configure the daily schedule and per-platform limit."
+            icon={ArrowPathIcon}
+          />
+          <div className="space-y-6 px-6 py-6 sm:px-8">
+            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5">
+              <p className="text-sm font-medium text-slate-800">Manual run</p>
+              <p className="mt-1 text-xs text-slate-500">
+                Uses the limit below for each platform. Runs in the background.
+              </p>
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => scrapeNowMutation.mutate()}
+                  disabled={scrapeNowMutation.isLoading}
+                  className={`${btnPrimary} inline-flex items-center gap-2`}
+                >
+                  <ArrowPathIcon
+                    className={`h-5 w-5 ${scrapeNowMutation.isLoading ? 'animate-spin' : ''}`}
+                    aria-hidden
+                  />
+                  {scrapeNowMutation.isLoading ? 'Starting…' : 'Run scraping now'}
+                </button>
+                {scrapeNowMutation.isSuccess && (
+                  <span className="text-sm font-medium text-emerald-600">Scraping started in background.</span>
+                )}
+                {scrapeNowMutation.isError && (
+                  <span className="text-sm text-red-600">
+                    {scrapeNowMutation.error?.response?.data?.error ||
+                      scrapeNowMutation.error?.response?.data?.detail ||
+                      'Failed to start'}
+                  </span>
+                )}
+              </div>
             </div>
 
-            <div className="pt-4 border-t border-gray-100">
-              <h4 className="text-sm font-medium text-gray-700 mb-3">Automatic scraping schedule</h4>
-              <div className="flex flex-wrap items-center gap-4">
-                <label className="inline-flex items-center">
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm ring-1 ring-slate-900/[0.02]">
+              <div className="flex items-center gap-2">
+                <ClockIcon className="h-5 w-5 text-slate-400" aria-hidden />
+                <h4 className="text-sm font-semibold text-slate-900">Automatic schedule</h4>
+              </div>
+              <p className="mt-1 text-xs text-slate-500">
+                Once per day at the chosen time (24h). Also configurable in Django Admin → System Settings.
+              </p>
+              <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center">
+                <label className="inline-flex cursor-pointer items-center rounded-lg bg-slate-50 px-3 py-2 ring-1 ring-slate-200">
                   <input
                     type="checkbox"
                     checked={scheduleEnabled}
@@ -566,23 +660,22 @@ export default function Settings() {
                       setScheduleEnabled(e.target.checked)
                       updateScheduleMutation.mutate({ enabled: e.target.checked })
                     }}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                   />
-                  <span className="ml-2 text-sm text-gray-700">Enabled</span>
+                  <span className="ml-2 text-sm font-medium text-slate-700">Schedule enabled</span>
                 </label>
                 <div className="flex items-center gap-2">
-                  <ClockIcon className="h-5 w-5 text-gray-400" />
+                  <span className="text-sm text-slate-600">Run at</span>
                   <input
                     type="time"
                     value={scheduleTime}
                     onChange={(e) => setScheduleTime(e.target.value)}
                     onBlur={() => updateScheduleMutation.mutate({ time: scheduleTime })}
-                    className="rounded border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className={inputClassCompact}
                   />
-                  <span className="text-sm text-gray-500">(24h)</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-700">Limit per platform:</span>
+                  <span className="text-sm text-slate-600">Limit / platform</span>
                   <input
                     type="number"
                     min={1}
@@ -590,13 +683,10 @@ export default function Settings() {
                     value={scheduleLimit}
                     onChange={(e) => setScheduleLimit(Number(e.target.value) || 50)}
                     onBlur={() => updateScheduleMutation.mutate({ limit: scheduleLimit })}
-                    className="w-20 rounded border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className={`${inputClassCompact} min-w-[5rem]`}
                   />
                 </div>
               </div>
-              <p className="mt-2 text-xs text-gray-500">
-                Scraping runs once per day at the set time when enabled. You can also change this in Django Admin → System Settings (scraping_schedule_time, scraping_schedule_enabled).
-              </p>
             </div>
           </div>
         </div>
@@ -605,12 +695,25 @@ export default function Settings() {
   )
 }
 
-function TopUpSection() {
+const TOPUP_PRESETS = [25, 50, 100, 250]
+
+const TOPUP_PROVIDERS = [
+  { id: 'stripe', title: 'Card', hint: 'Stripe Checkout', Icon: CreditCardIcon },
+  { id: 'paypal', title: 'PayPal', hint: 'Pay with account', Icon: GlobeAltIcon },
+  { id: 'payoneer', title: 'Payoneer', hint: 'Manual transfer', Icon: BanknotesIcon },
+  { id: 'crypto', title: 'Crypto', hint: 'Coinbase Commerce', Icon: CurrencyDollarIcon },
+]
+
+function TopUpSection({ balance }) {
   const [amount, setAmount] = useState('')
   const [provider, setProvider] = useState('stripe')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
+
+  const parsedAmount = parseFloat(amount)
+  const projected =
+    !Number.isNaN(parsedAmount) && parsedAmount > 0 ? balance + parsedAmount : null
 
   const handleTopUp = async () => {
     setError('')
@@ -652,49 +755,133 @@ function TopUpSection() {
   }
 
   return (
-    <div className="border-t border-gray-200 px-4 py-5 sm:px-6">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Amount (USD)</label>
-          <input
-            type="number"
-            min="1"
-            step="0.01"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-            placeholder="50.00"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Payment method</label>
-          <select
-            value={provider}
-            onChange={(e) => setProvider(e.target.value)}
-            className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
-          >
-            <option value="stripe">Card (Stripe)</option>
-            <option value="paypal">PayPal</option>
-            <option value="payoneer">Payoneer (manual)</option>
-            <option value="crypto">Crypto (Coinbase)</option>
-          </select>
-        </div>
-        <div className="flex items-end">
-          <button
-            type="button"
-            onClick={handleTopUp}
-            disabled={loading}
-            className="inline-flex w-full justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
-          >
-            {loading ? 'Processing…' : 'Top up'}
-          </button>
+    <div className="mt-8 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-lg shadow-slate-200/50 ring-1 ring-slate-900/5">
+      <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 px-6 py-8 sm:px-8">
+        <div
+          className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-blue-500/20 blur-3xl"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute -bottom-20 -left-10 h-40 w-40 rounded-full bg-emerald-500/15 blur-3xl"
+          aria-hidden
+        />
+        <div className="relative flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-xl">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Wallet</p>
+            <h3 className="mt-1 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+              Top up your balance
+            </h3>
+            <p className="mt-2 text-sm leading-relaxed text-slate-300">
+              Add funds with card, PayPal, Payoneer, or crypto. Credits apply after payment completes (instant for
+              most card and PayPal flows).
+            </p>
+          </div>
+          <div className="shrink-0 rounded-2xl border border-white/10 bg-white/[0.07] px-6 py-5 shadow-xl backdrop-blur-md sm:min-w-[220px]">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Current balance</p>
+            <p className="mt-1 text-3xl font-semibold tabular-nums tracking-tight text-white sm:text-4xl">
+              {formatUsd(balance)}
+            </p>
+          </div>
         </div>
       </div>
-      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-      {message && <p className="mt-3 text-sm text-green-600">{message}</p>}
-      <p className="mt-3 text-xs text-gray-500">
-        Stripe is used for card payments. Payoneer is handled manually; the app will show the receiving email and reference if configured.
-      </p>
+
+      <div className="border-t border-slate-100 bg-slate-50/50 px-6 py-7 sm:px-8">
+        <div className="mx-auto max-w-3xl space-y-8">
+          <div>
+            <label className="text-sm font-medium text-slate-800">Amount</label>
+            <p className="mt-0.5 text-xs text-slate-500">USD — choose a preset or enter any amount</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {TOPUP_PRESETS.map((preset) => {
+                const active = amount === String(preset)
+                return (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setAmount(String(preset))}
+                    className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
+                      active
+                        ? 'bg-slate-900 text-white shadow-md shadow-slate-900/20 ring-2 ring-slate-900 ring-offset-2'
+                        : 'bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 hover:ring-slate-300'
+                    }`}
+                  >
+                    {formatUsd(preset)}
+                  </button>
+                )
+              })}
+            </div>
+            <div className="relative mt-4">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+              <input
+                type="number"
+                min="1"
+                step="0.01"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="block w-full rounded-xl border-0 bg-white py-3 pl-8 pr-4 text-slate-900 shadow-sm ring-1 ring-slate-200 transition placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 sm:text-base"
+                placeholder="50.00"
+              />
+            </div>
+            {projected != null && (
+              <p className="mt-2 text-xs text-slate-500">
+                After this top-up completes: <span className="font-medium text-slate-700">{formatUsd(projected)}</span>
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-slate-800">Payment method</label>
+            <p className="mt-0.5 text-xs text-slate-500">Select how you want to pay</p>
+            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {TOPUP_PROVIDERS.map(({ id, title, hint, Icon }) => {
+                const selected = provider === id
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setProvider(id)}
+                    className={`flex flex-col items-start rounded-xl p-4 text-left transition-all ${
+                      selected
+                        ? 'bg-blue-50 ring-2 ring-blue-500 ring-offset-2'
+                        : 'bg-white ring-1 ring-slate-200 hover:bg-slate-50 hover:ring-slate-300'
+                    }`}
+                  >
+                    <Icon
+                      className={`h-6 w-6 ${selected ? 'text-blue-600' : 'text-slate-500'}`}
+                      aria-hidden
+                    />
+                    <span className="mt-3 text-sm font-semibold text-slate-900">{title}</span>
+                    <span className="mt-0.5 text-xs text-slate-500">{hint}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-slate-500 sm:max-w-md">
+              Card payments use Stripe. Payoneer is manual — we show the receiving email and reference when
+              configured.
+            </p>
+            <button
+              type="button"
+              onClick={handleTopUp}
+              disabled={loading}
+              className="inline-flex w-full shrink-0 items-center justify-center rounded-xl bg-blue-600 px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-blue-600/25 transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+            >
+              {loading ? 'Processing…' : 'Continue to payment'}
+            </button>
+          </div>
+
+          {error && (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>
+          )}
+          {message && (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+              {message}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

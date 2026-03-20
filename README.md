@@ -265,6 +265,13 @@ To enable actual email sending:
 2. Update `outreach/services.py` with email sending logic
 3. Add email templates in Django admin
 
+**After scraping:** when a scrape job adds one or more new `ProjectLead` rows, a background task emails all **active** users who are **not** staff or superuser (`is_staff` / `is_superuser`), with a link to available projects. Configure:
+
+- `FRONTEND_URL` — base URL of the React app (default `http://localhost:5173`). The email links to `{FRONTEND_URL}/dashboard/projects/available`.
+- `NOTIFY_NEW_PROJECTS_AFTER_SCRAPE` — set to `0`, `false`, or `off` to disable these notifications (default: enabled).
+
+*Note:* “Scrape all platforms” runs one Celery task per platform; you may receive **one email per platform** that added new leads in that run. SMTP must be configured (`SMTP_USER` / `SMTP_PASSWORD`, etc.) for real delivery.
+
 ## License
 
 Copyright © Timothy Morgan LLC. All rights reserved.
