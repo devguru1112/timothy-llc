@@ -238,6 +238,44 @@ class ProjectLeadViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
+    @action(detail=False, methods=['get'], url_path='best-matches', permission_classes=[IsAuthenticated])
+    def best_matches(self, request):
+        """Available projects ranked by match score for the current user (skills + priority + scores)."""
+        user = request.user
+        base = (
+            self.get_queryset()
+            .filter(Q(status__in=['new', 'qualified']) & Q(matched_user__isnull=True))
+            .prefetch_related('categories')
+        )
+        try:
+            limit = max(1, min(int(request.query_params.get('limit', 10)), 100))
+        except (TypeError, ValueError):
+            limit = 10
+        try:
+            max_candidates = max(limit, min(int(request.query_params.get('max_candidates', 500)), 2000))
+        except (TypeError, ValueError):
+            max_candidates = 500
+
+        verified = user.is_superuser or getattr(user, 'is_fully_verified', False)
+        if not verified:
+            free_limit = SystemSettings.get_int_setting('free_projects_limit', 10)
+            qs = base.order_by('-created_at')[:free_limit]
+        else:
+            qs = base.order_by('-relevance_score', '-quality_score', '-created_at')[:max_candidates]
+
+        service = ProjectMatchingService()
+        scored = [(p, service.score_match_for_user(p, user)) for p in qs]
+        scored.sort(key=lambda x: x[1], reverse=True)
+        top = scored[:limit]
+
+        serializer = ProjectLeadListSerializer(
+            [p for p, _ in top], many=True, context={'request': request}
+        )
+        data = list(serializer.data)
+        for i, (_, score) in enumerate(top):
+            data[i] = {**data[i], 'match_score': round(score, 4)}
+        return Response(data)
+
     @action(detail=False, methods=['get'])
     def my_projects(self, request):
         """Get projects matched to the current user."""
